@@ -8,8 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@neondatabase/auth": "^0.3.0-beta",
     "lucide-react": "^0.453.0",
+    "next-auth": "^4.24.7",
     "next": "14.2.15",
     "react": "^18",
     "react-dom": "^18",

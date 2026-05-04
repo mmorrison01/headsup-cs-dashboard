@@ -1,22 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import ExecutiveDashboard from "@/components/ExecutiveDashboard";
 import CSLeadershipDashboard from "@/components/CSLeadershipDashboard";
 import PLGEngagementDashboard from "@/components/PLGEngagementDashboard";
 import OnboardingLifecycleDashboard from "@/components/OnboardingLifecycleDashboard";
-import { authClient } from "@/lib/auth-client";
+import { signOut } from "next-auth/react";
 
 type View = "lifecycle" | "executive" | "cs" | "plg";
 
 export default function Home() {
   const [view, setView] = useState<View>("lifecycle");
-  const router = useRouter();
 
   async function handleSignOut() {
-    await authClient.signOut();
-    router.push("/auth/sign-in");
+    await signOut({ callbackUrl: '/auth/sign-in' });
   }
 
   return (

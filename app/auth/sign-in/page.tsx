@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { authClient } from '@/lib/auth-client';
+import { signIn } from 'next-auth/react';
 
 export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
-  async function handleMicrosoftSignIn() {
+  async function handleSignIn() {
     setLoading(true);
-    await authClient.signIn.social({ provider: 'microsoft', callbackURL: '/' });
+    await signIn('azure-ad', { callbackUrl: '/' });
   }
 
   return (
@@ -30,7 +30,7 @@ export default function SignInPage() {
         <p className="text-sm text-white/50 mb-8">Heads Up team access only</p>
 
         <button
-          onClick={handleMicrosoftSignIn}
+          onClick={handleSignIn}
           disabled={loading}
           className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-md bg-[#2F2F2F] text-white text-sm font-medium hover:bg-[#3a3a3a] transition-colors disabled:opacity-60 border border-white/10"
         >
