@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import ExecutiveDashboard from "@/components/ExecutiveDashboard";
 import CSLeadershipDashboard from "@/components/CSLeadershipDashboard";
 import PLGEngagementDashboard from "@/components/PLGEngagementDashboard";
 import OnboardingLifecycleDashboard from "@/components/OnboardingLifecycleDashboard";
+import { authClient } from "@/lib/auth-client";
 
 type View = "lifecycle" | "executive" | "cs" | "plg";
 
 export default function Home() {
   const [view, setView] = useState<View>("lifecycle");
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push("/auth/sign-in");
+  }
 
   return (
     <div className="min-h-screen">
@@ -32,6 +40,12 @@ export default function Home() {
                 Draft v0.2
               </div>
               <div className="text-white/60">Mike Morrison · COO</div>
+              <button
+                onClick={handleSignOut}
+                className="text-white/40 hover:text-white/70 transition-colors"
+              >
+                Sign out
+              </button>
               <div className="px-2 py-1 rounded-sm bg-white/10 text-[10px] uppercase tracking-wider">
                 Mock Data
               </div>
