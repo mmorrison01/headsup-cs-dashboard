@@ -45,11 +45,6 @@ function getMayWeekNumber(): number {
   return Math.min(Math.max(diffWeeks + 1, 1), 4);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function query<T = any>(conn: ReturnType<typeof getSalesforceConnection> extends Promise<infer C> ? C : never, soql: string): Promise<T[]> {
-  // @ts-expect-error jsforce types
-  return conn.query(soql).then((r: { records: T[] }) => r.records ?? []);
-}
 
 export async function GET() {
   if (!isSalesforceConfigured()) {
@@ -60,8 +55,8 @@ export async function GET() {
     const conn = await getSalesforceConnection();
 
     // Active accounts with bucket assignments
-    const acctRecs: { Id: string; Onboarding_Status__c: string | null; AnnualRevenue: number | null }[] = await (conn as any)
-      .query("SELECT Id, Onboarding_Status__c, AnnualRevenue FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND (NOT Name LIKE '%Amber Test%')")
+    const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null }[] = await (conn as any)
+      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND (NOT Name LIKE '%Amber Test%')")
       .then((r: any) => r.records ?? []);
 
     const acctBucket: Record<string, string> = {};
@@ -69,7 +64,7 @@ export async function GET() {
     for (const r of acctRecs) {
       const raw = r.Onboarding_Status__c ?? "pending";
       acctBucket[r.Id] = BUCKET_LABELS[raw] ?? "pending";
-      acctArr[r.Id] = r.AnnualRevenue ?? 0;
+      acctArr[r.Id] = r.Total_Deployment_Revenue_Estimate_c__c ?? 0;
     }
     const allAcctIds = Object.keys(acctBucket);
 
@@ -217,7 +212,7 @@ export async function GET() {
 
     // Account list (first 100 active non-B2 accounts for the detail table)
     const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, AnnualRevenue, Stage_Change_Date__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND Onboarding_Status__c != '2 - Deferred 2.0 Migration' AND (NOT Name LIKE '%Amber Test%') ORDER BY LastModifiedDate DESC LIMIT 100")
+      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Stage_Change_Date__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND Onboarding_Status__c != '2 - Deferred 2.0 Migration' AND (NOT Name LIKE '%Amber Test%') ORDER BY LastModifiedDate DESC LIMIT 100")
       .then((r: any) => r.records ?? []);
 
     const currentWeekNum = getMayWeekNumber();
@@ -266,7 +261,7 @@ export async function GET() {
         id: r.Id,
         accountName: r.Name,
         bucket: BUCKET_LABELS[r.Onboarding_Status__c ?? ""] ?? "pending",
-        arr: r.AnnualRevenue ?? 0,
+        arr: r.Total_Deployment_Revenue_Estimate_c__c ?? 0,
         goLiveDate: r.Customer_Planned_Go_Live_Date__c ?? null,
         daysInBucket: r.Stage_Change_Date__c
           ? Math.floor((Date.now() - new Date(r.Stage_Change_Date__c).getTime()) / 86400000)
