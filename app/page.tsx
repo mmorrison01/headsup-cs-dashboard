@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import ExecutiveDashboard from "@/components/ExecutiveDashboard";
 import CSLeadershipDashboard from "@/components/CSLeadershipDashboard";
 import PLGEngagementDashboard from "@/components/PLGEngagementDashboard";
@@ -9,8 +9,24 @@ import { signOut } from "next-auth/react";
 
 type View = "lifecycle" | "executive" | "cs" | "plg";
 
+function getWeekLabel(): { weekOf: string; isoWeek: string } {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const weekOf = monday.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  // ISO week number
+  const jan4 = new Date(monday.getFullYear(), 0, 4);
+  const startOfWeek1 = new Date(jan4);
+  startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+  const weekNum = Math.round((monday.getTime() - startOfWeek1.getTime()) / 604800000) + 1;
+  const isoWeek = `ISO-${monday.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  return { weekOf, isoWeek };
+}
+
 export default function Home() {
   const [view, setView] = useState<View>("lifecycle");
+  const { weekOf, isoWeek } = useMemo(() => getWeekLabel(), []);
 
   async function handleSignOut() {
     await signOut({ callbackUrl: '/auth/sign-in' });
@@ -33,9 +49,6 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-6 text-[11px]">
-              <div className="text-pulse-blue uppercase tracking-wider font-medium">
-                Draft v0.2
-              </div>
               <div className="text-white/60">Mike Morrison · COO</div>
               <button
                 onClick={handleSignOut}
@@ -43,9 +56,6 @@ export default function Home() {
               >
                 Sign out
               </button>
-              <div className="px-2 py-1 rounded-sm bg-white/10 text-[10px] uppercase tracking-wider">
-                Mock Data
-              </div>
             </div>
           </div>
 
@@ -55,13 +65,10 @@ export default function Home() {
                 <div className="font-display text-[36px] font-medium leading-tight tracking-tight">
                   PLG Customer Success
                 </div>
-                <div className="text-[13px] text-white/60 mt-1 font-light">
-                  Operating model v2.0 — proposed dashboard surface for team review
-                </div>
               </div>
               <div className="text-right text-[11px] text-white/60">
-                <div>Week of April 27, 2026</div>
-                <div className="font-mono tabular text-pulse-blue mt-0.5">ISO-2026-W18</div>
+                <div>Week of {weekOf}</div>
+                <div className="font-mono tabular text-pulse-blue mt-0.5">{isoWeek}</div>
               </div>
             </div>
 
@@ -70,14 +77,14 @@ export default function Home() {
                 active={view === "lifecycle"}
                 onClick={() => setView("lifecycle")}
                 label="Onboarding Lifecycle"
-                sub="Mon 9am MST · Mike + CSMs + ProdOps + PS"
+                sub="Operation GoLive · May 2026"
                 accent
               />
               <TabButton
                 active={view === "executive"}
                 onClick={() => setView("executive")}
                 label="Executive"
-                sub="Weekly review · Mike, John, Gavin"
+                sub="Weekly review · Mike, Ian, Gavin"
               />
               <TabButton
                 active={view === "cs"}
@@ -114,7 +121,6 @@ export default function Home() {
             <span>
               Data sources: <span className="font-mono">Salesforce · PostHog · Stripe · Billing module · Pardot</span>
             </span>
-            <span className="text-protocol-blue">Draft for team review — not production data</span>
           </div>
         </div>
       </footer>
