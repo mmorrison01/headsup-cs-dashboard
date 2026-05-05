@@ -68,23 +68,31 @@ export async function GET() {
     }
     const allAcctIds = Object.keys(acctBucket);
 
-    // Projects for CSM assignments (batch in chunks of 200)
+    // Projects for CSM assignments and account detail fields (batch in chunks of 200)
     const projCsm: Record<string, string> = {};
     const projAcct: Record<string, string> = {};
-    const projStage: Record<string, string> = {};
-    const projGoLive: Record<string, string | null> = {};
+    // account-level detail fields sourced from the project
+    const acctGoLive: Record<string, string | null> = {};
+    const acctTemperature: Record<string, string | null> = {};
+    const acctStageChangeDate: Record<string, string | null> = {};
+    const acctParallel10: Record<string, boolean> = {};
 
     for (let i = 0; i < allAcctIds.length; i += 200) {
       const batch = allAcctIds.slice(i, i + 200);
       const idsStr = batch.map(id => `'${id}'`).join(",");
       const recs: any[] = await (conn as any)
-        .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c FROM Project__c WHERE Account__c IN (${idsStr}) AND CSM__c != null`)
+        .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Stage_Change_Date__c, Parallel_1_0__c FROM Project__c WHERE Account__c IN (${idsStr}) AND CSM__c != null`)
         .then((r: any) => r.records ?? []);
       for (const r of recs) {
+        const acctId = r.Account__c;
         projCsm[r.Id] = r.CSM__c;
-        projAcct[r.Id] = r.Account__c;
-        projStage[r.Id] = r.Stage__c ?? "";
-        projGoLive[r.Id] = r.Customer_Planned_Go_Live_Date__c ?? null;
+        projAcct[r.Id] = acctId;
+
+        // Last project wins per account
+        acctGoLive[acctId] = r.Customer_Planned_Go_Live_Date__c ?? null;
+        acctTemperature[acctId] = r.Customer_Temperature__c ?? null;
+        acctStageChangeDate[acctId] = r.Stage_Change_Date__c ?? null;
+        acctParallel10[acctId] = r.Parallel_1_0__c ?? false;
       }
     }
 
@@ -212,7 +220,7 @@ export async function GET() {
 
     // Account list (first 100 active non-B2 accounts for the detail table)
     const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Stage_Change_Date__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND Onboarding_Status__c != '2 - Deferred 2.0 Migration' AND (NOT Name LIKE '%Amber Test%') ORDER BY LastModifiedDate DESC LIMIT 100")
+      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND Onboarding_Status__c != '2 - Deferred 2.0 Migration' AND (NOT Name LIKE '%Amber Test%') ORDER BY LastModifiedDate DESC LIMIT 100")
       .then((r: any) => r.records ?? []);
 
     const currentWeekNum = getMayWeekNumber();
@@ -262,12 +270,12 @@ export async function GET() {
         accountName: r.Name,
         bucket: BUCKET_LABELS[r.Onboarding_Status__c ?? ""] ?? "pending",
         arr: r.Total_Deployment_Revenue_Estimate_c__c ?? 0,
-        goLiveDate: r.Customer_Planned_Go_Live_Date__c ?? null,
-        daysInBucket: r.Stage_Change_Date__c
-          ? Math.floor((Date.now() - new Date(r.Stage_Change_Date__c).getTime()) / 86400000)
+        goLiveDate: acctGoLive[r.Id] ?? null,
+        daysInBucket: acctStageChangeDate[r.Id]
+          ? Math.floor((Date.now() - new Date(acctStageChangeDate[r.Id]!).getTime()) / 86400000)
           : null,
-        customerTemperature: r.Customer_Temperature__c ?? null,
-        parallel10: r.Parallel_1_0__c ?? false,
+        customerTemperature: acctTemperature[r.Id] ?? null,
+        parallel10: acctParallel10[r.Id] ?? false,
       })),
     });
   } catch (err) {
