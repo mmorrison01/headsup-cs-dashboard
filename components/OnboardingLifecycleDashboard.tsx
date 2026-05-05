@@ -440,7 +440,7 @@ export default function OnboardingLifecycleDashboard() {
                     </td>
                   ))}
                   <td className="text-right px-4 py-3 font-display text-lg font-semibold tabular text-midnight">
-                    {data.csmByBucket.reduce((s, r) => s + r.total, 0)}
+                    {data.totalActive}
                   </td>
                 </tr>
               </tbody>

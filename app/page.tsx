@@ -115,7 +115,7 @@ export default function Home() {
       <footer className="bg-white border-t border-panel-border">
         <div className="max-w-[1440px] mx-auto px-8 py-6 flex items-center justify-between text-[11px] text-muted-text">
           <div>
-            <span className="font-medium text-midnight">Heads Up Health, Inc.</span> · CS Operating Dashboard
+            <span className="font-medium text-midnight">HeadsUp Health LLC.</span> · CS Operating Dashboard
           </div>
           <div className="flex items-center gap-6">
             <span>
