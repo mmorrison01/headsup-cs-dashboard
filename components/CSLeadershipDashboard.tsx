@@ -37,6 +37,10 @@ export default function CSLeadershipDashboard() {
 
   return (
     <div className="tab-fade-in">
+      <div className="mb-6 rounded-md border-2 border-red-600 bg-red-50 px-5 py-4 text-center">
+        <span className="font-bold text-red-600 text-sm uppercase tracking-wide">Draft — Not Yet Implemented</span>
+        <p className="text-red-500 text-xs mt-1">This dashboard is a placeholder. Data shown is mock/sample only.</p>
+      </div>
       <SectionHeader
         kicker="CS Operations · Daily workbench"
         title="Account workbench"
