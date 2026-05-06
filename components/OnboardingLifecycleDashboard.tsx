@@ -36,10 +36,10 @@ const BUCKET_SHORT: Record<string, string> = {
 };
 
 const MAY_WEEKS = [
-  { label: "W1", dates: "May 5–9", focus: "Launch momentum — early movers", target: { lo: 20, hi: 25 } },
-  { label: "W2", dates: "May 12–16", focus: "B4/B5 unblock — biggest batch", target: { lo: 35, hi: 40 } },
-  { label: "W3", dates: "May 19–23", focus: "Near-launch push — B6 to B7", target: { lo: 40, hi: 45 } },
-  { label: "W4", dates: "May 26–30", focus: "Close the month — no accounts left behind", target: { lo: 25, hi: 30 } },
+  { label: "W1", dates: "May 5–9", focus: "Launch momentum — early movers", target: { lo: 25, hi: 30 } },
+  { label: "W2", dates: "May 12–16", focus: "B4/B5 unblock — biggest batch", target: { lo: 38, hi: 43 } },
+  { label: "W3", dates: "May 19–23", focus: "Near-launch push — B6 to B7", target: { lo: 43, hi: 49 } },
+  { label: "W4", dates: "May 26–30", focus: "Close the month — no accounts left behind", target: { lo: 30, hi: 35 } },
 ];
 
 interface ApiAccount {
