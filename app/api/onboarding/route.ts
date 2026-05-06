@@ -129,10 +129,10 @@ export async function GET() {
 
     // RT and TP totals
     const rtRecs: any[] = await (conn as any)
-      .query("SELECT Project__c, Status__c FROM Task_Temp__c WHERE Subject__c = 'Onboarding - Review Training and Documentation'")
+      .query("SELECT WhatId, Status FROM Task WHERE Subject = 'Onboarding - Review Training and Documentation'")
       .then((r: any) => r.records ?? []);
     const tpRecs: any[] = await (conn as any)
-      .query("SELECT Project__c, Status__c FROM Task_Temp__c WHERE Subject__c = 'Onboarding - Create Internal test patients'")
+      .query("SELECT WhatId, Status FROM Task WHERE Subject = 'Onboarding - Create Internal test patients'")
       .then((r: any) => r.records ?? []);
 
     const rtDone: Record<string, number> = {};
@@ -145,12 +145,12 @@ export async function GET() {
       ["tp", tpRecs, tpDone, tpTotal],
     ] as const) {
       for (const r of recs as any[]) {
-        const pid = r.Project__c;
+        const pid = r.WhatId;
         if (!projCsmEx[pid]) continue;
         const csm = CSM_IDS[projCsmEx[pid]];
         if (!csm || !CSMS.includes(csm)) continue;
         (total as any)[csm] = ((total as any)[csm] ?? 0) + 1;
-        if (r.Status__c === "Completed") (done as any)[csm] = ((done as any)[csm] ?? 0) + 1;
+        if (r.Status === "Completed") (done as any)[csm] = ((done as any)[csm] ?? 0) + 1;
       }
       void key;
     }
@@ -160,10 +160,10 @@ export async function GET() {
     const lastWeekSince = getMondayISO(-1);
 
     const weekRecs: any[] = await (conn as any)
-      .query(`SELECT Project__c FROM Task_Temp__c WHERE Subject__c IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status__c = 'Completed' AND LastModifiedDate >= ${weekSince}`)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CreatedDate >= ${weekSince}`)
       .then((r: any) => r.records ?? []);
     const lastWeekRecs: any[] = await (conn as any)
-      .query(`SELECT Project__c FROM Task_Temp__c WHERE Subject__c IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status__c = 'Completed' AND LastModifiedDate >= ${lastWeekSince} AND LastModifiedDate < ${weekSince}`)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CreatedDate >= ${lastWeekSince} AND CreatedDate < ${weekSince}`)
       .then((r: any) => r.records ?? []);
 
     const weekNew: Record<string, number> = {};
@@ -176,7 +176,7 @@ export async function GET() {
       [lastWeekRecs, lastWeekNew, seenLastWeek],
     ] as const) {
       for (const r of recs as any[]) {
-        const pid = r.Project__c;
+        const pid = r.WhatId;
         if (!projCsmEx[pid] || (seen as Set<string>).has(pid)) continue;
         (seen as Set<string>).add(pid);
         const csm = CSM_IDS[projCsmEx[pid]];
@@ -187,11 +187,11 @@ export async function GET() {
 
     // Secondary metric: >2 completed onboarding tasks per project
     const allTaskRecs: any[] = await (conn as any)
-      .query("SELECT Project__c, Status__c FROM Task_Temp__c WHERE Subject__c LIKE 'Onboarding%'")
+      .query("SELECT WhatId, Status FROM Task WHERE Subject LIKE 'Onboarding%'")
       .then((r: any) => r.records ?? []);
     const doneByProj: Record<string, number> = {};
     for (const r of allTaskRecs) {
-      if (r.Status__c === "Completed") doneByProj[r.Project__c] = (doneByProj[r.Project__c] ?? 0) + 1;
+      if (r.Status === "Completed") doneByProj[r.WhatId] = (doneByProj[r.WhatId] ?? 0) + 1;
     }
     const secDone: Record<string, number> = {};
     const secTotal: Record<string, number> = {};
@@ -205,12 +205,12 @@ export async function GET() {
     // May totals (since May 1)
     const mayStart = `${new Date().getFullYear()}-05-01T00:00:00Z`;
     const mayRecs: any[] = await (conn as any)
-      .query(`SELECT Project__c FROM Task_Temp__c WHERE Subject__c IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status__c = 'Completed' AND LastModifiedDate >= ${mayStart}`)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CreatedDate >= ${mayStart}`)
       .then((r: any) => r.records ?? []);
     const mayTotals: Record<string, number> = {};
     const seenMay = new Set<string>();
     for (const r of mayRecs as any[]) {
-      const pid = r.Project__c;
+      const pid = r.WhatId;
       if (!projCsmEx[pid] || seenMay.has(pid)) continue;
       seenMay.add(pid);
       const csm = CSM_IDS[projCsmEx[pid]];
@@ -218,9 +218,9 @@ export async function GET() {
       mayTotals[csm] = (mayTotals[csm] ?? 0) + 1;
     }
 
-    // Account list (first 100 active non-B2 accounts for the detail table)
+    // All active accounts for the workbench
     const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND Onboarding_Status__c != '2 - Deferred 2.0 Migration' AND (NOT Name LIKE '%Amber Test%') ORDER BY LastModifiedDate DESC LIMIT 100")
+      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
       .then((r: any) => r.records ?? []);
 
     const currentWeekNum = getMayWeekNumber();
@@ -276,6 +276,7 @@ export async function GET() {
           : null,
         customerTemperature: acctTemperature[r.Id] ?? null,
         parallel10: acctParallel10[r.Id] ?? false,
+        csmName: acctCsm[r.Id] ? (CSM_IDS[acctCsm[r.Id]] ?? null) : null,
       })),
     });
   } catch (err) {

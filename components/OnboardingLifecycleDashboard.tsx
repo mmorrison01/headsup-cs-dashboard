@@ -267,7 +267,7 @@ export default function OnboardingLifecycleDashboard() {
       {/* Standup metric */}
       <Panel
         title="The Standup Metric"
-        subtitle="Net Review Training + Test Patients completions, current week (Mon–today), per CSM."
+        subtitle="Net Review Training + Test Patients completions, current week, per CSM."
         className="mb-6"
       >
         <div className="space-y-1">
