@@ -87,7 +87,13 @@ interface ApiData {
   totalActive: number;
   csmByBucket: CsmRow[];
   standupMetrics: StandupRow[];
-  subtaskVelocity: Array<{ task: string; baseline: number; current: number; target: number }>;
+  bothDoneMetric: {
+    target: number;
+    teamBoth: number;
+    teamRtOnly: number;
+    teamTpOnly: number;
+    byCsm: Array<{ csm: string; both: number; rtOnly: number; tpOnly: number; target: number }>;
+  };
   weeklyCompletions: {
     thisWeek: Record<string, number>;
     lastWeek: Record<string, number>;
@@ -390,35 +396,51 @@ export default function OnboardingLifecycleDashboard() {
           </div>
         </Panel>
 
-        <Panel title="Subtask Velocity" subtitle="May completions vs. targets">
+        <Panel title="Both Done" subtitle="Projects with RT + TP complete · target 135">
           <div className="space-y-4">
-            {data.subtaskVelocity.map(t => {
-              const total = t.baseline + t.current;
-              const pct = Math.min(100, (total / Math.max(1, t.target)) * 100);
-              const baselinePct = Math.min(100, (t.baseline / Math.max(1, t.target)) * 100);
-              return (
-                <div key={t.task}>
-                  <div className="flex items-baseline justify-between mb-1.5">
-                    <span className="text-[12px] font-semibold text-midnight">
-                      {t.task}
-                      <span className="ml-1.5 text-[9px] uppercase tracking-wider text-protocol-blue font-medium">primary</span>
-                    </span>
+            {/* Team total */}
+            <div>
+              <div className="flex items-baseline justify-between text-[11px] mb-1">
+                <span className="font-semibold text-midnight">
+                  <span className="text-[18px] font-bold">{data.bothDoneMetric.teamBoth}</span>
+                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.target}</span>
+                </span>
+                <span className="text-muted-text">{Math.round((data.bothDoneMetric.teamBoth / data.bothDoneMetric.target) * 100)}%</span>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-sm overflow-hidden">
+                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.teamBoth / data.bothDoneMetric.target) * 100)}%` }} />
+              </div>
+            </div>
+            {/* One-away quick wins */}
+            <div className="flex gap-3 text-[10px]">
+              <span className="bg-amber-50 text-amber-700 border border-amber-200 rounded px-2 py-0.5 font-medium">
+                {data.bothDoneMetric.teamRtOnly} need RT only
+              </span>
+              <span className="bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5 font-medium">
+                {data.bothDoneMetric.teamTpOnly} need TP only
+              </span>
+            </div>
+            {/* Per-CSM rows */}
+            <div className="space-y-2.5">
+              {data.bothDoneMetric.byCsm.map(row => {
+                const pct = Math.min(100, (row.both / Math.max(1, row.target)) * 100);
+                return (
+                  <div key={row.csm}>
+                    <div className="flex items-baseline justify-between text-[10px] mb-0.5">
+                      <span className="font-medium text-midnight">{row.csm.split(" ")[0]}</span>
+                      <span className="text-muted-text font-mono tabular">
+                        {row.both}/{row.target}
+                        {row.rtOnly > 0 && <span className="ml-1.5 text-amber-600">+{row.rtOnly} need RT</span>}
+                        {row.tpOnly > 0 && <span className="ml-1.5 text-blue-600">+{row.tpOnly} need TP</span>}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-sm overflow-hidden">
+                      <div className="h-full bg-protocol-blue/70 rounded-sm" style={{ width: `${pct}%` }} />
+                    </div>
                   </div>
-                  <div className="flex items-baseline justify-between text-[10px] text-muted-text mb-1">
-                    <span>
-                      Baseline <span className="font-mono tabular">{t.baseline}</span>
-                      {" "}+<span className="font-mono tabular text-status-green font-medium"> {t.current} May</span>
-                      {" "}= <span className="font-mono tabular text-midnight font-medium">{total}</span>
-                    </span>
-                    <span>Target <span className="font-mono tabular">{t.target}</span></span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-sm overflow-hidden relative">
-                    <div className="absolute h-full bg-pulse-blue/40" style={{ width: `${baselinePct}%` }} />
-                    <div className="absolute h-full bg-protocol-blue rounded-sm" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </Panel>
       </div>

@@ -140,9 +140,12 @@ export async function GET() {
     const tpDone: Record<string, number> = {};
     const tpTotal: Record<string, number> = {};
 
-    for (const [key, recs, done, total] of [
-      ["rt", rtRecs, rtDone, rtTotal],
-      ["tp", tpRecs, tpDone, tpTotal],
+    const projRtDone = new Set<string>();
+    const projTpDone = new Set<string>();
+
+    for (const [key, recs, done, total, doneSet] of [
+      ["rt", rtRecs, rtDone, rtTotal, projRtDone],
+      ["tp", tpRecs, tpDone, tpTotal, projTpDone],
     ] as const) {
       for (const r of recs as any[]) {
         const pid = r.WhatId;
@@ -150,9 +153,28 @@ export async function GET() {
         const csm = CSM_IDS[projCsmEx[pid]];
         if (!csm || !CSMS.includes(csm)) continue;
         (total as any)[csm] = ((total as any)[csm] ?? 0) + 1;
-        if (r.Status === "Completed") (done as any)[csm] = ((done as any)[csm] ?? 0) + 1;
+        if (r.Status === "Completed") {
+          (done as any)[csm] = ((done as any)[csm] ?? 0) + 1;
+          (doneSet as Set<string>).add(pid);
+        }
       }
       void key;
+    }
+
+    // Both Done metric — projects with both RT and TP completed
+    const CSM_TARGETS: Record<string, number> = { "Elaine Peters": 65, "Jillian Ramos": 36, "Varsha Yaddala": 34 };
+    const bothDoneByCSM: Record<string, number> = {};
+    const rtOnlyByCSM: Record<string, number> = {};
+    const tpOnlyByCSM: Record<string, number> = {};
+
+    for (const [pid, csmId] of Object.entries(projCsmEx)) {
+      const csm = CSM_IDS[csmId];
+      if (!csm || !CSMS.includes(csm)) continue;
+      const hasRt = projRtDone.has(pid);
+      const hasTp = projTpDone.has(pid);
+      if (hasRt && hasTp) bothDoneByCSM[csm] = (bothDoneByCSM[csm] ?? 0) + 1;
+      else if (hasRt) rtOnlyByCSM[csm] = (rtOnlyByCSM[csm] ?? 0) + 1;
+      else if (hasTp) tpOnlyByCSM[csm] = (tpOnlyByCSM[csm] ?? 0) + 1;
     }
 
     // RT and TP month-to-date completions (since May 4)
@@ -278,14 +300,23 @@ export async function GET() {
         lastWeek: lastWeekNew[csm] ?? 0,
         weekTarget: WEEK_TARGETS[currentWeekNum] ?? "--",
         totalMay: mayTotals[csm] ?? 0,
-        monthTarget: csm === "Elaine Peters" ? 65 : csm === "Jillian Ramos" ? 36 : 34,
+        monthTarget: CSM_TARGETS[csm] ?? 0,
         fromB4: 0,
         fromB5: 0,
       })),
-      subtaskVelocity: [
-        { task: "Review Training", baseline: CSMS.reduce((s, c) => s + (rtDone[c] ?? 0), 0) - rtMtd, current: rtMtd, target: 200 },
-        { task: "Test Patients", baseline: CSMS.reduce((s, c) => s + (tpDone[c] ?? 0), 0) - tpMtd, current: tpMtd, target: 165 },
-      ],
+      bothDoneMetric: {
+        target: 135,
+        teamBoth: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
+        teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
+        teamTpOnly: CSMS.reduce((s, c) => s + (tpOnlyByCSM[c] ?? 0), 0),
+        byCsm: CSMS.map(csm => ({
+          csm,
+          both: bothDoneByCSM[csm] ?? 0,
+          rtOnly: rtOnlyByCSM[csm] ?? 0,
+          tpOnly: tpOnlyByCSM[csm] ?? 0,
+          target: CSM_TARGETS[csm] ?? 0,
+        })),
+      },
       rtMetrics: { done: rtDone, total: rtTotal },
       tpMetrics: { done: tpDone, total: tpTotal },
       weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, mayTotals },
