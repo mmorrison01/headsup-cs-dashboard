@@ -52,6 +52,8 @@ interface ApiAccount {
   customerTemperature: string | null;
   parallel10: boolean;
   csmName: string | null;
+  rtDone: boolean;
+  tpDone: boolean;
 }
 
 interface Task {
@@ -119,6 +121,7 @@ export default function OnboardingLifecycleDashboard() {
   const [selectedBucket, setSelectedBucket] = useState<string>("all");
   const [selectedCsm, setSelectedCsm] = useState<string>("all");
   const [selectedSearch, setSelectedSearch] = useState<string>("");
+  const [taskFilter, setTaskFilter] = useState<"all" | "needs-rt" | "needs-tp">("all");
   const [selectedAcct, setSelectedAcct] = useState<ApiAccount | null>(null);
   const [localAccounts, setLocalAccounts] = useState<ApiAccount[]>([]);
 
@@ -192,7 +195,8 @@ export default function OnboardingLifecycleDashboard() {
     const bucketMatch = selectedBucket === "all" || a.bucket === selectedBucket;
     const csmMatch = selectedCsm === "all" || a.csmName === selectedCsm;
     const searchMatch = !selectedSearch || a.accountName.toLowerCase().includes(selectedSearch.toLowerCase());
-    return bucketMatch && csmMatch && searchMatch;
+    const taskMatch = taskFilter === "all" || (taskFilter === "needs-rt" && !a.rtDone && a.tpDone) || (taskFilter === "needs-tp" && a.rtDone && !a.tpDone);
+    return bucketMatch && csmMatch && searchMatch && taskMatch;
   });
 
   const updatedLabel = new Date(data.updatedAt).toLocaleTimeString("en-US", {
@@ -205,7 +209,7 @@ export default function OnboardingLifecycleDashboard() {
         <SectionHeader
           kicker="Onboarding Lifecycle · Operation GoLive · May 2026"
           title="Active Onboarding — Live View"
-          sub={`${data.totalActive} active accounts across 7 buckets. Live Salesforce data, auto-refreshes every 5 minutes.`}
+          sub={`Active Projects across 7 buckets. Live Salesforce data, auto-refreshes every 5 minutes.`}
         />
         <div className="text-[11px] text-muted-text mt-1 flex-shrink-0 text-right">
           <span>Updated {updatedLabel}</span>
@@ -412,14 +416,20 @@ export default function OnboardingLifecycleDashboard() {
                 <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.newlyBothDone / data.bothDoneMetric.mayTarget) * 100)}%` }} />
               </div>
             </div>
-            {/* Quick wins */}
+            {/* Quick wins — clickable to filter the accounts table below */}
             <div className="flex gap-3 text-[10px]">
-              <span className="bg-amber-50 text-amber-700 border border-amber-200 rounded px-2 py-0.5 font-medium">
+              <button
+                onClick={() => setTaskFilter(taskFilter === "needs-rt" ? "all" : "needs-rt")}
+                className={`border rounded px-2 py-0.5 font-medium transition-colors cursor-pointer ${taskFilter === "needs-rt" ? "bg-amber-200 text-amber-900 border-amber-400" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}
+              >
                 {data.bothDoneMetric.teamRtOnly} need RT only
-              </span>
-              <span className="bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5 font-medium">
+              </button>
+              <button
+                onClick={() => setTaskFilter(taskFilter === "needs-tp" ? "all" : "needs-tp")}
+                className={`border rounded px-2 py-0.5 font-medium transition-colors cursor-pointer ${taskFilter === "needs-tp" ? "bg-blue-200 text-blue-900 border-blue-400" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"}`}
+              >
                 {data.bothDoneMetric.teamTpOnly} need TP only
-              </span>
+              </button>
             </div>
             {/* Per-CSM rows */}
             <div className="space-y-2.5">

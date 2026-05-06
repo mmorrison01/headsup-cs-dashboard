@@ -175,6 +175,14 @@ export async function GET() {
       void key;
     }
 
+    // Account-level RT/TP done flags
+    const acctRtDone = new Set<string>();
+    const acctTpDone = new Set<string>();
+    for (const [pid, acctId] of Object.entries(projAcct)) {
+      if (projRtDone.has(pid)) acctRtDone.add(acctId);
+      if (projTpDone.has(pid)) acctTpDone.add(acctId);
+    }
+
     // Both Done metric — projects with both RT and TP completed
     const CSM_TARGETS: Record<string, number> = { "Elaine Peters": 65, "Jillian Ramos": 36, "Varsha Yaddala": 34 };
     const bothDoneByCSM: Record<string, number> = {};
@@ -369,6 +377,8 @@ export async function GET() {
         customerTemperature: acctTemperature[r.Id] ?? null,
         parallel10: acctParallel10[r.Id] ?? false,
         csmName: acctCsm[r.Id] ? (CSM_IDS[acctCsm[r.Id]] ?? null) : null,
+        rtDone: acctRtDone.has(r.Id),
+        tpDone: acctTpDone.has(r.Id),
       })),
     });
   } catch (err) {
