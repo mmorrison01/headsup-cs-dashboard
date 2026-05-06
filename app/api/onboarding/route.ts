@@ -109,21 +109,22 @@ export async function GET() {
       acctCsm[projAcct[pid]] = csmId;
     }
 
-    // Bucket counts
+    // Bucket counts — project-based (each project maps to its account's bucket)
     const bucketCounts: Record<string, number> = { B1: 0, B2: 0, B3: 0, B4: 0, B5: 0, B6: 0, B7: 0, pending: 0 };
     const csmBucketCounts: Record<string, Record<string, number>> = {};
     for (const csm of CSMS) csmBucketCounts[csm] = { B1: 0, B2: 0, B3: 0, B4: 0, B5: 0, B6: 0, B7: 0 };
 
-    for (const [acctId, bkey] of Object.entries(acctBucket)) {
+    for (const [pid, csmId] of Object.entries(projCsm)) {
+      const acctId = projAcct[pid];
+      const bkey = acctBucket[acctId] ?? "pending";
       bucketCounts[bkey] = (bucketCounts[bkey] ?? 0) + 1;
-      const csmId = acctCsm[acctId];
       const csmName = csmId ? (CSM_IDS[csmId] ?? null) : null;
       if (csmName && CSMS.includes(csmName) && bkey !== "pending") {
         csmBucketCounts[csmName][bkey] = (csmBucketCounts[csmName][bkey] ?? 0) + 1;
       }
     }
 
-    // Stage-filtered projects are the metric denominator — no further exclusion needed
+    // All active projects are the metric denominator
     const projCsmEx = { ...projCsm };
 
     // RT and TP totals (all-time, for completion rate metric)
