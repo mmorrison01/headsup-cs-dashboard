@@ -127,7 +127,7 @@ export async function GET() {
       if (!b2AcctIds.has(projAcct[pid])) projCsmEx[pid] = csmId;
     }
 
-    // RT and TP totals
+    // RT and TP totals (all-time, for completion rate metric)
     const rtRecs: any[] = await (conn as any)
       .query("SELECT WhatId, Status FROM Task WHERE Subject = 'Onboarding - Review Training and Documentation'")
       .then((r: any) => r.records ?? []);
@@ -153,6 +153,37 @@ export async function GET() {
         if (r.Status === "Completed") (done as any)[csm] = ((done as any)[csm] ?? 0) + 1;
       }
       void key;
+    }
+
+    // RT and TP month-to-date completions (since May 4)
+    const monthStart = `${new Date().getFullYear()}-05-04T00:00:00Z`;
+    const rtMtdRecs: any[] = await (conn as any)
+      .query(`SELECT WhatId FROM Task WHERE Subject = 'Onboarding - Review Training and Documentation' AND Status = 'Completed' AND CompletedDateTime >= ${monthStart}`)
+      .then((r: any) => r.records ?? []);
+    const tpMtdRecs: any[] = await (conn as any)
+      .query(`SELECT WhatId FROM Task WHERE Subject = 'Onboarding - Create Internal test patients' AND Status = 'Completed' AND CompletedDateTime >= ${monthStart}`)
+      .then((r: any) => r.records ?? []);
+
+    let rtMtd = 0;
+    let tpMtd = 0;
+    const seenRtMtd = new Set<string>();
+    const seenTpMtd = new Set<string>();
+
+    for (const r of rtMtdRecs) {
+      const pid = r.WhatId;
+      if (!projCsmEx[pid] || seenRtMtd.has(pid)) continue;
+      seenRtMtd.add(pid);
+      const csm = CSM_IDS[projCsmEx[pid]];
+      if (!csm || !CSMS.includes(csm)) continue;
+      rtMtd++;
+    }
+    for (const r of tpMtdRecs) {
+      const pid = r.WhatId;
+      if (!projCsmEx[pid] || seenTpMtd.has(pid)) continue;
+      seenTpMtd.add(pid);
+      const csm = CSM_IDS[projCsmEx[pid]];
+      if (!csm || !CSMS.includes(csm)) continue;
+      tpMtd++;
     }
 
     // Weekly completions — this week and last week
@@ -252,8 +283,8 @@ export async function GET() {
         fromB5: 0,
       })),
       subtaskVelocity: [
-        { task: "Review Training", baseline: 133, current: CSMS.reduce((s, c) => s + (rtDone[c] ?? 0), 0), target: 200 },
-        { task: "Test Patients", baseline: 111, current: CSMS.reduce((s, c) => s + (tpDone[c] ?? 0), 0), target: 165 },
+        { task: "Review Training", current: rtMtd, target: 200 },
+        { task: "Test Patients", current: tpMtd, target: 165 },
       ],
       rtMetrics: { done: rtDone, total: rtTotal },
       tpMetrics: { done: tpDone, total: tpTotal },

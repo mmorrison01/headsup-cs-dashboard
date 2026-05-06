@@ -87,7 +87,7 @@ interface ApiData {
   totalActive: number;
   csmByBucket: CsmRow[];
   standupMetrics: StandupRow[];
-  subtaskVelocity: Array<{ task: string; baseline: number; current: number; target: number }>;
+  subtaskVelocity: Array<{ task: string; current: number; target: number }>;
   weeklyCompletions: {
     thisWeek: Record<string, number>;
     lastWeek: Record<string, number>;
@@ -393,7 +393,6 @@ export default function OnboardingLifecycleDashboard() {
         <Panel title="Subtask Velocity" subtitle="May completions vs. targets">
           <div className="space-y-4">
             {data.subtaskVelocity.map(t => {
-              const fromBaseline = t.current - t.baseline;
               const pct = Math.min(100, (t.current / Math.max(1, t.target)) * 100);
               return (
                 <div key={t.task}>
@@ -405,17 +404,14 @@ export default function OnboardingLifecycleDashboard() {
                   </div>
                   <div className="flex items-baseline justify-between text-[10px] text-muted-text mb-1">
                     <span>
-                      Baseline <span className="font-mono tabular">{t.baseline}</span> →{" "}
-                      <span className="font-mono tabular text-midnight font-medium">{t.current}</span>
+                      May completions: <span className="font-mono tabular text-midnight font-medium">{t.current}</span>
                     </span>
                     <span>
                       Target <span className="font-mono tabular">{t.target}</span>
-                      <span className="text-status-green ml-1">+{fromBaseline}</span>
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-100 rounded-sm overflow-hidden relative">
-                    <div className="absolute h-full bg-pulse-blue/40" style={{ width: `${(t.baseline / Math.max(1, t.target)) * 100}%` }} />
-                    <div className="absolute h-full bg-protocol-blue rounded-sm" style={{ width: `${pct}%` }} />
+                  <div className="h-2 bg-slate-100 rounded-sm overflow-hidden">
+                    <div className="h-full bg-protocol-blue rounded-sm" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
