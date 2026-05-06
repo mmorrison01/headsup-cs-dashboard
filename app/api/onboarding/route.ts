@@ -68,30 +68,23 @@ export async function GET() {
     }
     const allAcctIds = Object.keys(acctBucket);
 
-    // Projects for CSM assignments and account detail fields (batch in chunks of 200)
+    // Active projects (Stage = Onboard / Hypercare / Approved) drive CSM assignments and metric denominators
     const projCsm: Record<string, string> = {};
     const projAcct: Record<string, string> = {};
-    // account-level detail fields sourced from the project
     const acctGoLive: Record<string, string | null> = {};
     const acctTemperature: Record<string, string | null> = {};
     const acctParallel10: Record<string, boolean> = {};
 
-    for (let i = 0; i < allAcctIds.length; i += 200) {
-      const batch = allAcctIds.slice(i, i + 200);
-      const idsStr = batch.map(id => `'${id}'`).join(",");
-      const recs: any[] = await (conn as any)
-        .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Project__c WHERE Account__c IN (${idsStr}) AND CSM__c != null`)
-        .then((r: any) => r.records ?? []);
-      for (const r of recs) {
-        const acctId = r.Account__c;
-        projCsm[r.Id] = r.CSM__c;
-        projAcct[r.Id] = acctId;
-
-        // Last project wins per account
-        acctGoLive[acctId] = r.Customer_Planned_Go_Live_Date__c ?? null;
-        acctTemperature[acctId] = r.Customer_Temperature__c ?? null;
-        acctParallel10[acctId] = r.Parallel_1_0__c ?? false;
-      }
+    const projRecs: any[] = await (conn as any)
+      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare','Approved') AND CSM__c != null`)
+      .then((r: any) => r.records ?? []);
+    for (const r of projRecs) {
+      const acctId = r.Account__c;
+      projCsm[r.Id] = r.CSM__c;
+      projAcct[r.Id] = acctId;
+      acctGoLive[acctId] = r.Customer_Planned_Go_Live_Date__c ?? null;
+      acctTemperature[acctId] = r.Customer_Temperature__c ?? null;
+      acctParallel10[acctId] = r.Parallel_1_0__c ?? false;
     }
 
     // Onboarding status change dates from AccountHistory (field history tracking)
@@ -130,16 +123,8 @@ export async function GET() {
       }
     }
 
-    // B2 exclusion set for metrics
-    const b2AcctIds = new Set(
-      Object.entries(acctBucket)
-        .filter(([, b]) => b === "B2")
-        .map(([id]) => id)
-    );
-    const projCsmEx: Record<string, string> = {};
-    for (const [pid, csmId] of Object.entries(projCsm)) {
-      if (!b2AcctIds.has(projAcct[pid])) projCsmEx[pid] = csmId;
-    }
+    // Stage-filtered projects are the metric denominator — no further exclusion needed
+    const projCsmEx = { ...projCsm };
 
     // RT and TP totals (all-time, for completion rate metric)
     const rtRecs: any[] = await (conn as any)
