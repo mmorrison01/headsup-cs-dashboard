@@ -88,12 +88,12 @@ interface ApiData {
   csmByBucket: CsmRow[];
   standupMetrics: StandupRow[];
   bothDoneMetric: {
-    target: number;
-    teamMayCompletions: number;
-    teamOutstanding: number;
+    mayTarget: number;
+    baseline: number;
+    newlyBothDone: number;
     teamRtOnly: number;
     teamTpOnly: number;
-    byCsm: Array<{ csm: string; mayCompletions: number; both: number; rtOnly: number; tpOnly: number; target: number }>;
+    byCsm: Array<{ csm: string; newlyBothDone: number; both: number; rtOnly: number; tpOnly: number; target: number }>;
   };
   weeklyCompletions: {
     thisWeek: Record<string, number>;
@@ -397,19 +397,19 @@ export default function OnboardingLifecycleDashboard() {
           </div>
         </Panel>
 
-        <Panel title="RT + TP May Progress" subtitle={`${data.bothDoneMetric.teamOutstanding} tasks outstanding · target 135 completions`}>
+        <Panel title="Both Done in May" subtitle={`Baseline ${data.bothDoneMetric.baseline} → target ${data.bothDoneMetric.baseline + data.bothDoneMetric.mayTarget} by May 30`}>
           <div className="space-y-4">
-            {/* Team total — May completions vs 135 */}
+            {/* Team May progress */}
             <div>
               <div className="flex items-baseline justify-between text-[11px] mb-1">
                 <span className="font-semibold text-midnight">
-                  <span className="text-[18px] font-bold">{data.bothDoneMetric.teamMayCompletions}</span>
-                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.target} May target</span>
+                  <span className="text-[18px] font-bold">{data.bothDoneMetric.newlyBothDone}</span>
+                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.mayTarget} new in May</span>
                 </span>
-                <span className="text-muted-text">{Math.round((data.bothDoneMetric.teamMayCompletions / data.bothDoneMetric.target) * 100)}%</span>
+                <span className="text-muted-text">{Math.round((data.bothDoneMetric.newlyBothDone / data.bothDoneMetric.mayTarget) * 100)}%</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-sm overflow-hidden">
-                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.teamMayCompletions / data.bothDoneMetric.target) * 100)}%` }} />
+                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.newlyBothDone / data.bothDoneMetric.mayTarget) * 100)}%` }} />
               </div>
             </div>
             {/* Quick wins */}
@@ -424,13 +424,13 @@ export default function OnboardingLifecycleDashboard() {
             {/* Per-CSM rows */}
             <div className="space-y-2.5">
               {data.bothDoneMetric.byCsm.map(row => {
-                const pct = Math.min(100, (row.mayCompletions / Math.max(1, row.target)) * 100);
+                const pct = Math.min(100, (row.newlyBothDone / Math.max(1, row.target)) * 100);
                 return (
                   <div key={row.csm}>
                     <div className="flex items-baseline justify-between text-[10px] mb-0.5">
                       <span className="font-medium text-midnight">{row.csm.split(" ")[0]}</span>
                       <span className="text-muted-text font-mono tabular">
-                        {row.mayCompletions}/{row.target} May
+                        {row.newlyBothDone}/{row.target} May
                         {row.rtOnly > 0 && <span className="ml-1.5 text-amber-600">{row.rtOnly} need RT</span>}
                         {row.tpOnly > 0 && <span className="ml-1.5 text-blue-600">{row.tpOnly} need TP</span>}
                       </span>

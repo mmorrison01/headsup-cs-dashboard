@@ -212,9 +212,15 @@ export async function GET() {
       tpMtdByCSM[csm] = (tpMtdByCSM[csm] ?? 0) + 1;
     }
 
-    const teamOutstanding =
-      CSMS.reduce((s, c) => s + (rtTotal[c] ?? 0) - (rtDone[c] ?? 0), 0) +
-      CSMS.reduce((s, c) => s + (tpTotal[c] ?? 0) - (tpDone[c] ?? 0), 0);
+    // Accounts that newly crossed "both done" in May (both complete, at least one completed since May 4)
+    const newlyBothDoneByCSM: Record<string, number> = {};
+    for (const [pid, csmId] of Object.entries(projCsmEx)) {
+      const csm = CSM_IDS[csmId];
+      if (!csm || !CSMS.includes(csm)) continue;
+      if (projRtDone.has(pid) && projTpDone.has(pid) && (seenRtMtd.has(pid) || seenTpMtd.has(pid))) {
+        newlyBothDoneByCSM[csm] = (newlyBothDoneByCSM[csm] ?? 0) + 1;
+      }
+    }
 
     // Weekly completions — this week and last week
     const weekSince = getMondayISO(0);
@@ -313,14 +319,14 @@ export async function GET() {
         fromB5: 0,
       })),
       bothDoneMetric: {
-        target: 135,
-        teamMayCompletions: rtMtd + tpMtd,
-        teamOutstanding,
+        mayTarget: 135,
+        baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
+        newlyBothDone: CSMS.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
         teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
         teamTpOnly: CSMS.reduce((s, c) => s + (tpOnlyByCSM[c] ?? 0), 0),
         byCsm: CSMS.map(csm => ({
           csm,
-          mayCompletions: (rtMtdByCSM[csm] ?? 0) + (tpMtdByCSM[csm] ?? 0),
+          newlyBothDone: newlyBothDoneByCSM[csm] ?? 0,
           both: bothDoneByCSM[csm] ?? 0,
           rtOnly: rtOnlyByCSM[csm] ?? 0,
           tpOnly: tpOnlyByCSM[csm] ?? 0,
