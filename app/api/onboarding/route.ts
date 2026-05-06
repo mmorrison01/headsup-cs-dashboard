@@ -56,7 +56,7 @@ export async function GET() {
 
     // Active accounts with bucket assignments
     const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null }[] = await (conn as any)
-      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND (NOT Name LIKE '%Amber Test%')")
+      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND (NOT Name LIKE '%Amber Test%')")
       .then((r: any) => r.records ?? []);
 
     const acctBucket: Record<string, string> = {};
@@ -282,7 +282,7 @@ export async function GET() {
 
     // All active accounts for the workbench
     const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Type = 'Customer' AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
+      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
       .then((r: any) => r.records ?? []);
 
     const currentWeekNum = getMayWeekNumber();
