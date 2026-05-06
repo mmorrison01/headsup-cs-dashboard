@@ -257,7 +257,7 @@ export default function OnboardingLifecycleDashboard() {
           </div>
           <div className="font-display text-4xl font-medium tabular text-midnight">{data.secondaryMetric.activeTotal}</div>
           <div className="text-[11px] text-muted-text mt-2">
-            Active projects excl. {data.bucketCounts.B2 ?? 0} deferred · {data.totalActive} total
+            Stage: Onboard · Hypercare · Approved
           </div>
         </Panel>
 
