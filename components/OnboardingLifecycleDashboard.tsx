@@ -255,9 +255,9 @@ export default function OnboardingLifecycleDashboard() {
           <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-text mb-1.5">
             Active book
           </div>
-          <div className="font-display text-4xl font-medium tabular text-midnight">{data.totalActive}</div>
+          <div className="font-display text-4xl font-medium tabular text-midnight">{data.secondaryMetric.activeTotal}</div>
           <div className="text-[11px] text-muted-text mt-2">
-            {data.bucketCounts.B2 ?? 0} deferred (B2) excluded from metrics
+            Active projects excl. {data.bucketCounts.B2 ?? 0} deferred · {data.totalActive} total
           </div>
         </Panel>
 
