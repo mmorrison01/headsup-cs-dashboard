@@ -295,6 +295,10 @@ export async function GET() {
 
     const bothDonePct = activeProjectTotal > 0 ? Math.round(100 * bothDoneTotal / activeProjectTotal) : 0;
 
+    const teamMonthTotal = Object.values(CSM_MTD_TARGETS).reduce((a, b) => a + b, 0);
+    const rawWt = WEEK_TARGETS[currentWeekNum] ?? "0-0";
+    const [wtLo, wtHi] = rawWt.split("-").map(Number);
+
     return NextResponse.json({
       updatedAt: new Date().toISOString(),
       currentWeekNum,
@@ -307,16 +311,22 @@ export async function GET() {
         ...csmBucketCounts[csm],
         total: Object.values(csmBucketCounts[csm]).reduce((a, b) => a + b, 0),
       })),
-      standupMetrics: CSMS.map(csm => ({
-        csm,
-        thisWeek: weekNew[csm] ?? 0,
-        lastWeek: lastWeekNew[csm] ?? 0,
-        weekTarget: WEEK_TARGETS[currentWeekNum] ?? "--",
-        totalMay: mayTotals[csm] ?? 0,
-        monthTarget: CSM_MTD_TARGETS[csm] ?? 0,
-        fromB4: 0,
-        fromB5: 0,
-      })),
+      standupMetrics: CSMS.map(csm => {
+        const csmMtd = CSM_MTD_TARGETS[csm] ?? 0;
+        const share = teamMonthTotal > 0 ? csmMtd / teamMonthTotal : 0;
+        const csmWtLo = Math.round(wtLo * share);
+        const csmWtHi = Math.round(wtHi * share);
+        return {
+          csm,
+          thisWeek: weekNew[csm] ?? 0,
+          lastWeek: lastWeekNew[csm] ?? 0,
+          weekTarget: `${csmWtLo}-${csmWtHi}`,
+          totalMay: mayTotals[csm] ?? 0,
+          monthTarget: CSM_MTD_TARGETS[csm] ?? 0,
+          fromB4: 0,
+          fromB5: 0,
+        };
+      }),
       bothDoneMetric: {
         mayTarget: 255,
         baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
