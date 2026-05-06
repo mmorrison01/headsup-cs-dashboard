@@ -261,12 +261,6 @@ export async function GET() {
       }
     }
 
-    // Both done rate — % of active non-B2 project book with both RT and TP complete (14-day rolling metric, goal 70%)
-    let activeProjectTotal = 0;
-    for (const [pid, csmId] of Object.entries(projCsmEx)) {
-      const csm = CSM_IDS[csmId];
-      if (csm && CSMS.includes(csm)) { activeProjectTotal++; void pid; }
-    }
     const bothDoneTotal = CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0);
 
     // May totals (since May 1)
@@ -293,7 +287,7 @@ export async function GET() {
     const currentWeekNum = getMayWeekNumber();
     const totalActive = bucketCounts.B1 + bucketCounts.B2 + bucketCounts.B3 + bucketCounts.B4 + bucketCounts.B5 + bucketCounts.B6 + bucketCounts.B7;
 
-    const bothDonePct = activeProjectTotal > 0 ? Math.round(100 * bothDoneTotal / activeProjectTotal) : 0;
+    const bothDonePct = totalActive > 0 ? Math.round(100 * bothDoneTotal / totalActive) : 0;
 
     const teamMonthTotal = Object.values(CSM_MTD_TARGETS).reduce((a, b) => a + b, 0);
     const rawWt = WEEK_TARGETS[currentWeekNum] ?? "0-0";
@@ -347,7 +341,7 @@ export async function GET() {
       weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, mayTotals },
       secondaryMetric: {
         bothDoneTotal,
-        activeTotal: activeProjectTotal,
+        activeTotal: totalActive,
         pct: bothDonePct,
         goal: 70,
       },
