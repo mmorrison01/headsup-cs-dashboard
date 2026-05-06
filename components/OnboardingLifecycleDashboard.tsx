@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Panel, SectionHeader, formatCurrency } from "./ui";
 
 type Bucket = "B1" | "B2" | "B3" | "B4" | "B5" | "B6" | "B7";
@@ -51,6 +51,14 @@ interface ApiAccount {
   daysInBucket: number | null;
   customerTemperature: string | null;
   parallel10: boolean;
+  csmName: string | null;
+}
+
+interface Task {
+  id: string;
+  subject: string;
+  status: string;
+  lastModified: string;
 }
 
 interface CsmRow {
@@ -102,7 +110,10 @@ export default function OnboardingLifecycleDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<string>("all");
+  const [selectedCsm, setSelectedCsm] = useState<string>("all");
+  const [selectedSearch, setSelectedSearch] = useState<string>("");
   const [selectedAcct, setSelectedAcct] = useState<ApiAccount | null>(null);
+  const [localAccounts, setLocalAccounts] = useState<ApiAccount[]>([]);
 
   async function fetchData() {
     try {
@@ -110,8 +121,15 @@ export default function OnboardingLifecycleDashboard() {
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const json: ApiData = await res.json();
       setData(json);
+      setLocalAccounts(json.accounts);
       setError(null);
-      setSelectedAcct(prev => prev ?? (json.accounts[0] ?? null));
+      setSelectedAcct(prev => {
+        if (prev) {
+          const fresh = json.accounts.find(a => a.id === prev.id);
+          return fresh ?? prev;
+        }
+        return json.accounts[0] ?? null;
+      });
     } catch (e) {
       setError(String(e));
     } finally {
@@ -125,6 +143,17 @@ export default function OnboardingLifecycleDashboard() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleBucketChange(accountId: string, newBucket: string) {
+    setLocalAccounts(prev => prev.map(a => a.id === accountId ? { ...a, bucket: newBucket } : a));
+    setSelectedAcct(prev => prev?.id === accountId ? { ...prev, bucket: newBucket } : prev);
+  }
+
+  const availableCsms = useMemo(() => {
+    const set = new Set<string>();
+    localAccounts.forEach(a => { if (a.csmName) set.add(a.csmName); });
+    return Array.from(set).sort();
+  }, [localAccounts]);
 
   if (loading) {
     return (
@@ -152,9 +181,12 @@ export default function OnboardingLifecycleDashboard() {
   const totalMay = Object.values(data.weeklyCompletions.mayTotals).reduce((s, v) => s + v, 0);
   const currentWeekIndex = Math.max(0, data.currentWeekNum - 1);
 
-  const filtered = data.accounts.filter(a =>
-    selectedBucket === "all" ? true : a.bucket === selectedBucket
-  );
+  const filtered = localAccounts.filter(a => {
+    const bucketMatch = selectedBucket === "all" || a.bucket === selectedBucket;
+    const csmMatch = selectedCsm === "all" || a.csmName === selectedCsm;
+    const searchMatch = !selectedSearch || a.accountName.toLowerCase().includes(selectedSearch.toLowerCase());
+    return bucketMatch && csmMatch && searchMatch;
+  });
 
   const updatedLabel = new Date(data.updatedAt).toLocaleTimeString("en-US", {
     hour: "numeric", minute: "2-digit",
@@ -235,7 +267,7 @@ export default function OnboardingLifecycleDashboard() {
       {/* Standup metric */}
       <Panel
         title="The Standup Metric"
-        subtitle="Net Review Training + Test Patients completions, trailing 7 days, per CSM."
+        subtitle="Net Review Training + Test Patients completions, current week (Mon–today), per CSM."
         className="mb-6"
       >
         <div className="space-y-1">
@@ -453,21 +485,50 @@ export default function OnboardingLifecycleDashboard() {
       <SectionHeader
         kicker="Account Workbench"
         title="Active onboarding accounts"
-        sub="Filter by bucket. Live from Salesforce — 100 most recently modified non-B2 accounts."
+        sub="Filter by bucket or CSM. Click an account to view details and update status. Changes write directly to Salesforce."
       />
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        <FilterChip label="All" count={data.accounts.length} active={selectedBucket === "all"} onClick={() => setSelectedBucket("all")} />
+      {/* Bucket filters */}
+      <div className="flex flex-wrap gap-2 mb-2">
+        <FilterChip label="All buckets" count={localAccounts.filter(a => selectedCsm === "all" || a.csmName === selectedCsm).length} active={selectedBucket === "all"} onClick={() => setSelectedBucket("all")} />
         {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
           <FilterChip
             key={b}
             label={`${b} ${BUCKET_SHORT[b]}`}
-            count={data.accounts.filter(a => a.bucket === b).length}
+            count={localAccounts.filter(a => a.bucket === b && (selectedCsm === "all" || a.csmName === selectedCsm)).length}
             active={selectedBucket === b}
             onClick={() => setSelectedBucket(b)}
             color={BUCKET_COLORS[b]}
           />
         ))}
+      </div>
+
+      {/* CSM filters */}
+      {availableCsms.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <FilterChip label="All CSMs" count={0} active={selectedCsm === "all"} onClick={() => setSelectedCsm("all")} showCount={false} color="#475569" />
+          {availableCsms.map(csm => (
+            <FilterChip
+              key={csm}
+              label={csm}
+              count={localAccounts.filter(a => a.csmName === csm && (selectedBucket === "all" || a.bucket === selectedBucket)).length}
+              active={selectedCsm === csm}
+              onClick={() => setSelectedCsm(csm)}
+              color="#475569"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Search accounts…"
+          value={selectedSearch}
+          onChange={e => setSelectedSearch(e.target.value)}
+          className="w-full max-w-xs text-[12px] border border-panel-border rounded-sm px-3 py-1.5 bg-white text-dark-text placeholder:text-muted-text/60 focus:outline-none focus:border-protocol-blue"
+        />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
@@ -500,9 +561,10 @@ export default function OnboardingLifecycleDashboard() {
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium text-midnight">{a.accountName}</div>
-                        {a.parallel10 && (
-                          <div className="text-[10px] text-protocol-blue mt-0.5">Parallel 1.0</div>
-                        )}
+                        <div className="text-[10px] text-muted-text mt-0.5">
+                          {a.csmName ?? "Unassigned"}
+                          {a.parallel10 && <span className="ml-2 text-protocol-blue">· Parallel 1.0</span>}
+                        </div>
                       </td>
                       <td className="text-center px-2">
                         <span
@@ -546,7 +608,12 @@ export default function OnboardingLifecycleDashboard() {
         </div>
 
         <div className="col-span-5">
-          {selectedAcct && <AccountDetail account={selectedAcct} />}
+          {selectedAcct && (
+            <AccountDetail
+              account={selectedAcct}
+              onBucketChange={handleBucketChange}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -560,9 +627,9 @@ function TempBadge({ temp }: { temp: string | null }) {
 }
 
 function FilterChip({
-  label, count, active, onClick, color = "#2563EB",
+  label, count, active, onClick, color = "#2563EB", showCount = true,
 }: {
-  label: string; count: number; active: boolean; onClick: () => void; color?: string;
+  label: string; count: number; active: boolean; onClick: () => void; color?: string; showCount?: boolean;
 }) {
   return (
     <button
@@ -573,39 +640,122 @@ function FilterChip({
       style={active ? { background: color } : undefined}
     >
       <span>{label}</span>
-      <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-mono tabular ${
-        active ? "bg-white/20" : "bg-slate-100 text-muted-text"
-      }`}>
-        {count}
-      </span>
+      {showCount && (
+        <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-mono tabular ${
+          active ? "bg-white/20" : "bg-slate-100 text-muted-text"
+        }`}>
+          {count}
+        </span>
+      )}
     </button>
   );
 }
 
-function AccountDetail({ account: a }: { account: ApiAccount }) {
+function AccountDetail({
+  account: a,
+  onBucketChange,
+}: {
+  account: ApiAccount;
+  onBucketChange: (accountId: string, newBucket: string) => void;
+}) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [savingBucket, setSavingBucket] = useState(false);
+  const [taskSaving, setTaskSaving] = useState<Set<string>>(new Set());
+  const [taskError, setTaskError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTasks([]);
+    setLoadingTasks(true);
+    fetch(`/api/onboarding/account?accountId=${a.id}`)
+      .then(r => r.json())
+      .then(d => setTasks(d.tasks ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingTasks(false));
+  }, [a.id]);
+
+  async function handleBucketSelect(newBucket: string) {
+    if (newBucket === a.bucket) return;
+    setSavingBucket(true);
+    onBucketChange(a.id, newBucket);
+    try {
+      await fetch("/api/onboarding/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "bucket", accountId: a.id, bucket: newBucket }),
+      });
+    } finally {
+      setSavingBucket(false);
+    }
+  }
+
+  async function handleTaskStatus(taskId: string, newStatus: string) {
+    setTaskError(null);
+    const prevTasks = tasks;
+    setTaskSaving(prev => new Set(prev).add(taskId));
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    try {
+      const res = await fetch("/api/onboarding/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "task", taskId, status: newStatus }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setTaskError(body.error ?? `Save failed (${res.status})`);
+        setTasks(prevTasks);
+      }
+    } catch (e) {
+      setTaskError(String(e));
+      setTasks(prevTasks);
+    } finally {
+      setTaskSaving(prev => { const s = new Set(prev); s.delete(taskId); return s; });
+    }
+  }
+
+  const taskStatusColor = (status: string) =>
+    status === "Completed" ? "text-status-green" : status === "In Progress" ? "text-protocol-blue" : "text-muted-text";
+
   return (
     <Panel
       title={a.accountName}
-      subtitle={a.bucket !== "pending" ? `${a.bucket} · ${BUCKET_LABELS[a.bucket] ?? ""}` : "Bucket unassigned"}
+      subtitle={a.csmName ?? "CSM unassigned"}
       noPadding
     >
       <div className="px-5 py-4 space-y-4">
-        <div className="flex items-start justify-between">
-          <span
-            className="inline-block px-2 py-0.5 rounded-sm font-mono text-[11px] font-semibold"
-            style={{
-              background: `${BUCKET_COLORS[a.bucket] ?? "#94A3B8"}20`,
-              color: BUCKET_COLORS[a.bucket] ?? "#94A3B8",
-            }}
-          >
-            {a.bucket}
-          </span>
-          <div className="text-right">
+        {/* Suggested action — top of card */}
+        <div className="p-3 rounded-sm bg-light-bg border border-panel-border">
+          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-1.5">
+            Suggested action
+          </div>
+          <div className="text-xs text-dark-text leading-relaxed">{SUGGESTED_ACTIONS[a.bucket] ?? "—"}</div>
+        </div>
+
+        {/* Bucket selector + ARR */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Bucket</div>
+            <select
+              value={a.bucket}
+              onChange={e => handleBucketSelect(e.target.value)}
+              disabled={savingBucket}
+              className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1.5 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+            >
+              {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
+                <option key={b} value={b}>{b} — {BUCKET_LABELS[b]}</option>
+              ))}
+            </select>
+            {savingBucket && (
+              <div className="text-[10px] text-protocol-blue mt-1">Saving to Salesforce…</div>
+            )}
+          </div>
+          <div className="text-right flex-shrink-0">
             <div className="font-display text-xl font-medium tabular text-midnight">{formatCurrency(a.arr, true)}</div>
             <div className="text-[10px] text-muted-text uppercase tracking-wider">ARR</div>
           </div>
         </div>
 
+        {/* Key metrics */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-text">Go-live target</div>
@@ -641,12 +791,46 @@ function AccountDetail({ account: a }: { account: ApiAccount }) {
           </div>
         </div>
 
+        {/* Task list */}
         <div className="pt-3 border-t border-panel-border">
-          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2">
-            Suggested action
+          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2.5">
+            Project Tasks
           </div>
-          <div className="text-xs text-dark-text leading-relaxed">{SUGGESTED_ACTIONS[a.bucket] ?? "—"}</div>
+          {taskError && (
+            <div className="mb-2 text-[11px] text-status-red bg-rose-50 border border-rose-200 rounded-sm px-2 py-1.5">
+              {taskError}
+            </div>
+          )}
+          {loadingTasks ? (
+            <div className="text-[11px] text-muted-text py-2">Loading tasks…</div>
+          ) : tasks.length === 0 ? (
+            <div className="text-[11px] text-muted-text py-2">No onboarding tasks found.</div>
+          ) : (
+            <div className="space-y-2">
+              {tasks.map(t => (
+                <div
+                  key={t.id}
+                  className={`flex items-center gap-2 ${t.status === "Completed" ? "opacity-50" : ""}`}
+                >
+                  <div className="flex-1 text-[11px] text-dark-text leading-snug">
+                    {t.subject.replace(/^Onboarding - /, "")}
+                  </div>
+                  <select
+                    value={t.status}
+                    onChange={e => handleTaskStatus(t.id, e.target.value)}
+                    disabled={taskSaving.has(t.id)}
+                    className={`text-[10px] border border-panel-border rounded-sm px-1.5 py-0.5 bg-white focus:outline-none focus:border-protocol-blue disabled:cursor-wait flex-shrink-0 ${taskStatusColor(t.status)}`}
+                  >
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
       </div>
     </Panel>
   );
