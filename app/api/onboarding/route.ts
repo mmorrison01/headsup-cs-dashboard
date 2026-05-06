@@ -74,14 +74,13 @@ export async function GET() {
     // account-level detail fields sourced from the project
     const acctGoLive: Record<string, string | null> = {};
     const acctTemperature: Record<string, string | null> = {};
-    const acctStageChangeDate: Record<string, string | null> = {};
     const acctParallel10: Record<string, boolean> = {};
 
     for (let i = 0; i < allAcctIds.length; i += 200) {
       const batch = allAcctIds.slice(i, i + 200);
       const idsStr = batch.map(id => `'${id}'`).join(",");
       const recs: any[] = await (conn as any)
-        .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Stage_Change_Date__c, Parallel_1_0__c FROM Project__c WHERE Account__c IN (${idsStr}) AND CSM__c != null`)
+        .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Project__c WHERE Account__c IN (${idsStr}) AND CSM__c != null`)
         .then((r: any) => r.records ?? []);
       for (const r of recs) {
         const acctId = r.Account__c;
@@ -91,8 +90,23 @@ export async function GET() {
         // Last project wins per account
         acctGoLive[acctId] = r.Customer_Planned_Go_Live_Date__c ?? null;
         acctTemperature[acctId] = r.Customer_Temperature__c ?? null;
-        acctStageChangeDate[acctId] = r.Stage_Change_Date__c ?? null;
         acctParallel10[acctId] = r.Parallel_1_0__c ?? false;
+      }
+    }
+
+    // Onboarding status change dates from AccountHistory (field history tracking)
+    const acctStatusChangeDate: Record<string, string | null> = {};
+    for (let i = 0; i < allAcctIds.length; i += 200) {
+      const batch = allAcctIds.slice(i, i + 200);
+      const idsStr = batch.map(id => `'${id}'`).join(",");
+      const histRecs: any[] = await (conn as any)
+        .query(`SELECT AccountId, CreatedDate FROM AccountHistory WHERE Field = 'Onboarding_Status__c' AND AccountId IN (${idsStr}) ORDER BY CreatedDate DESC`)
+        .then((r: any) => r.records ?? []);
+      for (const r of histRecs) {
+        // First record per account is the most recent (DESC order)
+        if (!acctStatusChangeDate[r.AccountId]) {
+          acctStatusChangeDate[r.AccountId] = r.CreatedDate;
+        }
       }
     }
 
@@ -349,8 +363,8 @@ export async function GET() {
         bucket: BUCKET_LABELS[r.Onboarding_Status__c ?? ""] ?? "pending",
         arr: r.Total_Deployment_Revenue_Estimate_c__c ?? 0,
         goLiveDate: acctGoLive[r.Id] ?? null,
-        daysInBucket: acctStageChangeDate[r.Id]
-          ? Math.floor((Date.now() - new Date(acctStageChangeDate[r.Id]!).getTime()) / 86400000)
+        daysInBucket: acctStatusChangeDate[r.Id]
+          ? Math.floor((Date.now() - new Date(acctStatusChangeDate[r.Id]!).getTime()) / 86400000)
           : null,
         customerTemperature: acctTemperature[r.Id] ?? null,
         parallel10: acctParallel10[r.Id] ?? false,
