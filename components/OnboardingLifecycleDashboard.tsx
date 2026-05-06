@@ -103,11 +103,10 @@ interface ApiData {
     mayTotals: Record<string, number>;
   };
   secondaryMetric: {
-    done: Record<string, number>;
-    total: Record<string, number>;
-    teamDone: number;
-    teamTotal: number;
-    teamPct: number;
+    bothDoneTotal: number;
+    activeTotal: number;
+    pct: number;
+    goal: number;
   };
   accounts: ApiAccount[];
 }
@@ -264,13 +263,20 @@ export default function OnboardingLifecycleDashboard() {
 
         <Panel>
           <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-text mb-1.5">
-            Secondary metric
+            Both done rate (14d)
           </div>
-          <div className="font-display text-4xl font-medium tabular text-midnight">
-            {data.secondaryMetric.teamPct}%
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-4xl font-medium tabular text-midnight">{data.secondaryMetric.pct}%</span>
+            <span className="text-sm text-muted-text">/ {data.secondaryMetric.goal}%</span>
           </div>
-          <div className="text-[11px] text-muted-text mt-2">
-            {data.secondaryMetric.teamDone}/{data.secondaryMetric.teamTotal} projects &gt;2 tasks done · target 70%
+          <div className="mt-2 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
+            <div
+              className="h-full bg-protocol-blue rounded-sm"
+              style={{ width: `${Math.min(100, (data.secondaryMetric.pct / data.secondaryMetric.goal) * 100)}%` }}
+            />
+          </div>
+          <div className="text-[11px] text-muted-text mt-1.5">
+            {data.secondaryMetric.bothDoneTotal}/{data.secondaryMetric.activeTotal} active accounts both done
           </div>
         </Panel>
       </div>

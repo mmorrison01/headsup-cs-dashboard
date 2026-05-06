@@ -274,22 +274,13 @@ export async function GET() {
       }
     }
 
-    // Secondary metric: >2 completed onboarding tasks per project
-    const allTaskRecs: any[] = await (conn as any)
-      .query("SELECT WhatId, Status FROM Task WHERE Subject LIKE 'Onboarding%'")
-      .then((r: any) => r.records ?? []);
-    const doneByProj: Record<string, number> = {};
-    for (const r of allTaskRecs) {
-      if (r.Status === "Completed") doneByProj[r.WhatId] = (doneByProj[r.WhatId] ?? 0) + 1;
-    }
-    const secDone: Record<string, number> = {};
-    const secTotal: Record<string, number> = {};
+    // Both done rate — % of active non-B2 project book with both RT and TP complete (14-day rolling metric, goal 70%)
+    let activeProjectTotal = 0;
     for (const [pid, csmId] of Object.entries(projCsmEx)) {
       const csm = CSM_IDS[csmId];
-      if (!csm || !CSMS.includes(csm)) continue;
-      secTotal[csm] = (secTotal[csm] ?? 0) + 1;
-      if ((doneByProj[pid] ?? 0) > 2) secDone[csm] = (secDone[csm] ?? 0) + 1;
+      if (csm && CSMS.includes(csm)) { activeProjectTotal++; void pid; }
     }
+    const bothDoneTotal = CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0);
 
     // May totals (since May 1)
     const mayStart = `${new Date().getFullYear()}-05-01T00:00:00Z`;
@@ -315,8 +306,7 @@ export async function GET() {
     const currentWeekNum = getMayWeekNumber();
     const totalActive = bucketCounts.B1 + bucketCounts.B2 + bucketCounts.B3 + bucketCounts.B4 + bucketCounts.B5 + bucketCounts.B6 + bucketCounts.B7;
 
-    const teamSecDone = CSMS.reduce((s, c) => s + (secDone[c] ?? 0), 0);
-    const teamSecTotal = CSMS.reduce((s, c) => s + (secTotal[c] ?? 0), 0);
+    const bothDonePct = activeProjectTotal > 0 ? Math.round(100 * bothDoneTotal / activeProjectTotal) : 0;
 
     return NextResponse.json({
       updatedAt: new Date().toISOString(),
@@ -359,11 +349,10 @@ export async function GET() {
       tpMetrics: { done: tpDone, total: tpTotal },
       weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, mayTotals },
       secondaryMetric: {
-        done: secDone,
-        total: secTotal,
-        teamDone: teamSecDone,
-        teamTotal: teamSecTotal,
-        teamPct: teamSecTotal > 0 ? Math.round(100 * teamSecDone / teamSecTotal) : 0,
+        bothDoneTotal,
+        activeTotal: activeProjectTotal,
+        pct: bothDonePct,
+        goal: 70,
       },
       accounts: acctDetails.map(r => ({
         id: r.Id,
