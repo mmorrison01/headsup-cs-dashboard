@@ -283,8 +283,8 @@ export async function GET() {
         fromB5: 0,
       })),
       subtaskVelocity: [
-        { task: "Review Training", current: rtMtd, target: 200 },
-        { task: "Test Patients", current: tpMtd, target: 165 },
+        { task: "Review Training", baseline: CSMS.reduce((s, c) => s + (rtDone[c] ?? 0), 0) - rtMtd, current: rtMtd, target: 200 },
+        { task: "Test Patients", baseline: CSMS.reduce((s, c) => s + (tpDone[c] ?? 0), 0) - tpMtd, current: tpMtd, target: 165 },
       ],
       rtMetrics: { done: rtDone, total: rtTotal },
       tpMetrics: { done: tpDone, total: tpTotal },
