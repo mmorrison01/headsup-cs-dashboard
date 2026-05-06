@@ -160,10 +160,10 @@ export async function GET() {
     const lastWeekSince = getMondayISO(-1);
 
     const weekRecs: any[] = await (conn as any)
-      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CreatedDate >= ${weekSince}`)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND LastModifiedDate >= ${weekSince}`)
       .then((r: any) => r.records ?? []);
     const lastWeekRecs: any[] = await (conn as any)
-      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CreatedDate >= ${lastWeekSince} AND CreatedDate < ${weekSince}`)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND LastModifiedDate >= ${lastWeekSince} AND LastModifiedDate < ${weekSince}`)
       .then((r: any) => r.records ?? []);
 
     const weekNew: Record<string, number> = {};
@@ -205,7 +205,7 @@ export async function GET() {
     // May totals (since May 1)
     const mayStart = `${new Date().getFullYear()}-05-01T00:00:00Z`;
     const mayRecs: any[] = await (conn as any)
-      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CreatedDate >= ${mayStart}`)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND LastModifiedDate >= ${mayStart}`)
       .then((r: any) => r.records ?? []);
     const mayTotals: Record<string, number> = {};
     const seenMay = new Set<string>();
