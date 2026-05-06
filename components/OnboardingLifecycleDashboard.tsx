@@ -111,7 +111,7 @@ interface ApiData {
   accounts: ApiAccount[];
 }
 
-const MONTH_TARGET = 135;
+const MONTH_TARGET = 147;
 
 export default function OnboardingLifecycleDashboard() {
   const [data, setData] = useState<ApiData | null>(null);
@@ -407,19 +407,19 @@ export default function OnboardingLifecycleDashboard() {
           </div>
         </Panel>
 
-        <Panel title="Both Done in May" subtitle={`Baseline ${data.bothDoneMetric.baseline} → target ${data.bothDoneMetric.baseline + data.bothDoneMetric.mayTarget} by May 30`}>
+        <Panel title="Both Done" subtitle={`Goal: ${data.bothDoneMetric.mayTarget} total (70% of ${data.secondaryMetric.activeTotal} active) by May 30`}>
           <div className="space-y-4">
-            {/* Team May progress */}
+            {/* Team cumulative progress toward 255 */}
             <div>
               <div className="flex items-baseline justify-between text-[11px] mb-1">
                 <span className="font-semibold text-midnight">
-                  <span className="text-[18px] font-bold">{data.bothDoneMetric.newlyBothDone}</span>
-                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.mayTarget} new in May</span>
+                  <span className="text-[18px] font-bold">{data.bothDoneMetric.baseline}</span>
+                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.mayTarget} · +{data.bothDoneMetric.newlyBothDone} in May</span>
                 </span>
-                <span className="text-muted-text">{Math.round((data.bothDoneMetric.newlyBothDone / data.bothDoneMetric.mayTarget) * 100)}%</span>
+                <span className="text-muted-text">{Math.round((data.bothDoneMetric.baseline / data.bothDoneMetric.mayTarget) * 100)}%</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-sm overflow-hidden">
-                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.newlyBothDone / data.bothDoneMetric.mayTarget) * 100)}%` }} />
+                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.baseline / data.bothDoneMetric.mayTarget) * 100)}%` }} />
               </div>
             </div>
             {/* Quick wins — clickable to filter the accounts table below */}
@@ -440,13 +440,13 @@ export default function OnboardingLifecycleDashboard() {
             {/* Per-CSM rows */}
             <div className="space-y-2.5">
               {data.bothDoneMetric.byCsm.map(row => {
-                const pct = Math.min(100, (row.newlyBothDone / Math.max(1, row.target)) * 100);
+                const pct = Math.min(100, (row.both / Math.max(1, row.target)) * 100);
                 return (
                   <div key={row.csm}>
                     <div className="flex items-baseline justify-between text-[10px] mb-0.5">
                       <span className="font-medium text-midnight">{row.csm.split(" ")[0]}</span>
                       <span className="text-muted-text font-mono tabular">
-                        {row.newlyBothDone}/{row.target} May
+                        {row.both}/{row.target}
                         {row.rtOnly > 0 && <span className="ml-1.5 text-amber-600">{row.rtOnly} need RT</span>}
                         {row.tpOnly > 0 && <span className="ml-1.5 text-blue-600">{row.tpOnly} need TP</span>}
                       </span>

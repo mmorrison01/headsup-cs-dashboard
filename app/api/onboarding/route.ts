@@ -26,7 +26,7 @@ const BASELINE: Record<string, number> = {
   B1: 22, B2: 67, B3: 55, B4: 49, B5: 103, B6: 22, B7: 38, total: 361,
 };
 
-const WEEK_TARGETS: Record<number, string> = { 1: "20-25", 2: "35-40", 3: "40-45", 4: "25-30" };
+const WEEK_TARGETS: Record<number, string> = { 1: "25-30", 2: "38-43", 3: "43-49", 4: "30-35" };
 
 function getMondayISO(offset = 0): string {
   const d = new Date();
@@ -169,7 +169,9 @@ export async function GET() {
     }
 
     // Both Done metric — projects with both RT and TP completed
-    const CSM_TARGETS: Record<string, number> = { "Elaine Peters": 65, "Jillian Ramos": 36, "Varsha Yaddala": 34 };
+    // Total both-done targets (70% of 363 active = 255) and incremental monthly targets (255-108 baseline = 147)
+    const CSM_TARGETS: Record<string, number> = { "Elaine Peters": 123, "Jillian Ramos": 68, "Varsha Yaddala": 64 };
+    const CSM_MTD_TARGETS: Record<string, number> = { "Elaine Peters": 71, "Jillian Ramos": 39, "Varsha Yaddala": 37 };
     const bothDoneByCSM: Record<string, number> = {};
     const rtOnlyByCSM: Record<string, number> = {};
     const tpOnlyByCSM: Record<string, number> = {};
@@ -311,12 +313,12 @@ export async function GET() {
         lastWeek: lastWeekNew[csm] ?? 0,
         weekTarget: WEEK_TARGETS[currentWeekNum] ?? "--",
         totalMay: mayTotals[csm] ?? 0,
-        monthTarget: CSM_TARGETS[csm] ?? 0,
+        monthTarget: CSM_MTD_TARGETS[csm] ?? 0,
         fromB4: 0,
         fromB5: 0,
       })),
       bothDoneMetric: {
-        mayTarget: 135,
+        mayTarget: 255,
         baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
         newlyBothDone: CSMS.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
         teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
