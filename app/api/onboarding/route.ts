@@ -278,7 +278,7 @@ export async function GET() {
         lastWeek: lastWeekNew[csm] ?? 0,
         weekTarget: WEEK_TARGETS[currentWeekNum] ?? "--",
         totalMay: mayTotals[csm] ?? 0,
-        monthTarget: csm === "Elaine Peters" ? 45 : csm === "Jillian Ramos" ? 40 : 35,
+        monthTarget: csm === "Elaine Peters" ? 65 : csm === "Jillian Ramos" ? 36 : 34,
         fromB4: 0,
         fromB5: 0,
       })),

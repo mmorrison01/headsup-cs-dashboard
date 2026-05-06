@@ -103,7 +103,7 @@ interface ApiData {
   accounts: ApiAccount[];
 }
 
-const MONTH_TARGET = 120;
+const MONTH_TARGET = 135;
 
 export default function OnboardingLifecycleDashboard() {
   const [data, setData] = useState<ApiData | null>(null);
