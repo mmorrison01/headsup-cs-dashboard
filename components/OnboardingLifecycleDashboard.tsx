@@ -36,10 +36,10 @@ const BUCKET_SHORT: Record<string, string> = {
 };
 
 const MAY_WEEKS = [
-  { label: "W1", dates: "May 5–9", focus: "Launch momentum — early movers", target: { lo: 5, hi: 8 } },
-  { label: "W2", dates: "May 12–16", focus: "B4/B5 unblock — biggest batch", target: { lo: 12, hi: 15 } },
-  { label: "W3", dates: "May 19–23", focus: "Near-launch push — B6 to B7", target: { lo: 10, hi: 12 } },
-  { label: "W4", dates: "May 26–30", focus: "Close the month — no accounts left behind", target: { lo: 8, hi: 10 } },
+  { label: "W1", dates: "May 5–9", focus: "Launch momentum — early movers", target: { lo: 20, hi: 25 } },
+  { label: "W2", dates: "May 12–16", focus: "B4/B5 unblock — biggest batch", target: { lo: 35, hi: 40 } },
+  { label: "W3", dates: "May 19–23", focus: "Near-launch push — B6 to B7", target: { lo: 40, hi: 45 } },
+  { label: "W4", dates: "May 26–30", focus: "Close the month — no accounts left behind", target: { lo: 25, hi: 30 } },
 ];
 
 interface ApiAccount {
@@ -220,7 +220,7 @@ export default function OnboardingLifecycleDashboard() {
         <Panel className="!bg-gradient-to-br from-midnight to-navy-core text-white border-0">
           <div className="px-1">
             <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-pulse-blue mb-1.5">
-              Net completions this week
+              Both done this week
             </div>
             <div className="font-display text-4xl font-medium tabular">{totalNet}</div>
             <div className="text-[11px] text-pulse-blue mt-1.5">
@@ -274,7 +274,7 @@ export default function OnboardingLifecycleDashboard() {
       {/* Standup metric */}
       <Panel
         title="The Standup Metric"
-        subtitle="Net Review Training + Test Patients completions, current week, per CSM."
+        subtitle="Accounts newly both done (RT + TP complete) this week, per CSM."
         className="mb-6"
       >
         <div className="space-y-1">
@@ -343,7 +343,7 @@ export default function OnboardingLifecycleDashboard() {
                 </div>
                 <div className="text-[11px] text-dark-text mt-1 leading-snug">{w.focus}</div>
                 <div className="text-[10px] font-mono tabular text-muted-text mt-1.5">
-                  Target: {w.target.lo}–{w.target.hi}/CSM
+                  Target: {w.target.lo}–{w.target.hi} team
                 </div>
               </div>
             ))}

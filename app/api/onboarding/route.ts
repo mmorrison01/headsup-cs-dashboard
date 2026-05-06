@@ -26,7 +26,7 @@ const BASELINE: Record<string, number> = {
   B1: 22, B2: 67, B3: 55, B4: 49, B5: 103, B6: 22, B7: 38, total: 361,
 };
 
-const WEEK_TARGETS: Record<number, string> = { 1: "5-8", 2: "12-15", 3: "10-12", 4: "8-10" };
+const WEEK_TARGETS: Record<number, string> = { 1: "20-25", 2: "35-40", 3: "40-45", 4: "25-30" };
 
 function getMondayISO(offset = 0): string {
   const d = new Date();
@@ -252,17 +252,17 @@ export async function GET() {
     const seenWeek = new Set<string>();
     const seenLastWeek = new Set<string>();
 
-    for (const [recs, out, seen] of [
-      [weekRecs, weekNew, seenWeek],
-      [lastWeekRecs, lastWeekNew, seenLastWeek],
-    ] as const) {
-      for (const r of recs as any[]) {
-        const pid = r.WhatId;
-        if (!projCsmEx[pid] || (seen as Set<string>).has(pid)) continue;
-        (seen as Set<string>).add(pid);
-        const csm = CSM_IDS[projCsmEx[pid]];
-        if (!csm || !CSMS.includes(csm)) continue;
-        (out as Record<string, number>)[csm] = ((out as Record<string, number>)[csm] ?? 0) + 1;
+    // Build sets of projects that had any RT/TP task completed each week
+    for (const r of weekRecs) { if (projCsmEx[r.WhatId]) seenWeek.add(r.WhatId); }
+    for (const r of lastWeekRecs) { if (projCsmEx[r.WhatId]) seenLastWeek.add(r.WhatId); }
+
+    // Count newly both done: both RT and TP complete, at least one completed that week
+    for (const [pid, csmId] of Object.entries(projCsmEx)) {
+      const csm = CSM_IDS[csmId];
+      if (!csm || !CSMS.includes(csm)) continue;
+      if (projRtDone.has(pid) && projTpDone.has(pid)) {
+        if (seenWeek.has(pid)) weekNew[csm] = (weekNew[csm] ?? 0) + 1;
+        if (seenLastWeek.has(pid)) lastWeekNew[csm] = (lastWeekNew[csm] ?? 0) + 1;
       }
     }
 
