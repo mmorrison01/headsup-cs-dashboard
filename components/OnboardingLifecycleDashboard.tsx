@@ -718,6 +718,8 @@ function AccountDetail({
   const [fieldSaving, setFieldSaving] = useState<Set<string>>(new Set());
   const [taskSaving, setTaskSaving] = useState<Set<string>>(new Set());
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [feed, setFeed] = useState<{ id: string; type: "chatter" | "note"; author: string; date: string; title: string | null; body: string }[]>([]);
+  const [loadingFeed, setLoadingFeed] = useState(false);
 
   useEffect(() => {
     setTasks([]);
@@ -727,6 +729,14 @@ function AccountDetail({
       .then(d => setTasks(d.tasks ?? []))
       .catch(() => {})
       .finally(() => setLoadingTasks(false));
+
+    setFeed([]);
+    setLoadingFeed(true);
+    fetch(`/api/onboarding/notes?accountId=${a.id}`)
+      .then(r => r.json())
+      .then(d => setFeed(d.feed ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingFeed(false));
   }, [a.id]);
 
   async function handleBucketSelect(newBucket: string) {
@@ -982,6 +992,34 @@ function AccountDetail({
                     <option value="In Progress">In Progress</option>
                     <option value="Completed">Completed</option>
                   </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Notes & Chatter */}
+        <div className="mt-4 border-t border-panel-border pt-4">
+          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2.5">Notes &amp; Chatter</div>
+          {loadingFeed ? (
+            <div className="text-[11px] text-muted-text py-2">Loading…</div>
+          ) : feed.length === 0 ? (
+            <div className="text-[11px] text-muted-text py-2">No notes or chatter found.</div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {feed.map((item: { id: string; type: "chatter" | "note"; author: string; date: string; title: string | null; body: string }) => (
+                <div key={item.id} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-sm ${item.type === "chatter" ? "bg-blue-50 text-protocol-blue" : "bg-gray-100 text-muted-text"}`}>
+                      {item.type === "chatter" ? "Chatter" : "Note"}
+                    </span>
+                    <span className="text-[11px] font-medium text-dark-text">{item.author}</span>
+                    <span className="text-[10px] text-muted-text ml-auto">{new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  </div>
+                  {item.title && (
+                    <div className="text-[11px] font-semibold text-dark-text">{item.title}</div>
+                  )}
+                  <div className="text-[11px] text-dark-text leading-snug whitespace-pre-wrap">{item.body}</div>
                 </div>
               ))}
             </div>
