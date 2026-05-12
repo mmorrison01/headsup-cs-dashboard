@@ -712,24 +712,12 @@ function AccountDetail({
   onBucketChange: (accountId: string, newBucket: string) => void;
   onFieldChange: (accountId: string, field: keyof ApiAccount, value: string | null) => void;
 }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loadingTasks, setLoadingTasks] = useState(false);
   const [savingBucket, setSavingBucket] = useState(false);
   const [fieldSaving, setFieldSaving] = useState<Set<string>>(new Set());
-  const [taskSaving, setTaskSaving] = useState<Set<string>>(new Set());
-  const [taskError, setTaskError] = useState<string | null>(null);
   const [feed, setFeed] = useState<{ id: string; type: "chatter" | "note"; author: string; date: string; title: string | null; body: string }[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
 
   useEffect(() => {
-    setTasks([]);
-    setLoadingTasks(true);
-    fetch(`/api/onboarding/account?accountId=${a.id}`)
-      .then(r => r.json())
-      .then(d => setTasks(d.tasks ?? []))
-      .catch(() => {})
-      .finally(() => setLoadingTasks(false));
-
     setFeed([]);
     setLoadingFeed(true);
     fetch(`/api/onboarding/notes?accountId=${a.id}`)
@@ -751,30 +739,6 @@ function AccountDetail({
       });
     } finally {
       setSavingBucket(false);
-    }
-  }
-
-  async function handleTaskStatus(taskId: string, newStatus: string) {
-    setTaskError(null);
-    const prevTasks = tasks;
-    setTaskSaving(prev => new Set(prev).add(taskId));
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    try {
-      const res = await fetch("/api/onboarding/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "task", taskId, status: newStatus }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setTaskError(body.error ?? `Save failed (${res.status})`);
-        setTasks(prevTasks);
-      }
-    } catch (e) {
-      setTaskError(String(e));
-      setTasks(prevTasks);
-    } finally {
-      setTaskSaving(prev => { const s = new Set(prev); s.delete(taskId); return s; });
     }
   }
 
@@ -816,9 +780,6 @@ function AccountDetail({
       setFieldSaving(s => { const n = new Set(s); n.delete(field); return n; });
     }
   }
-
-  const taskStatusColor = (status: string) =>
-    status === "Completed" ? "text-status-green" : status === "In Progress" ? "text-protocol-blue" : "text-muted-text";
 
   const execStatusColor = (v: string | null) =>
     v === "On Track" ? "text-status-green" : v === "At Risk" ? "text-status-yellow" : v === "Needs Attention" ? "text-status-red" : v === "Churned" ? "text-status-red" : "text-muted-text";
@@ -956,46 +917,6 @@ function AccountDetail({
               </select>
             </div>
           </div>
-        </div>
-
-        {/* Task list */}
-        <div className="pt-3 border-t border-panel-border">
-          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2.5">
-            Project Tasks
-          </div>
-          {taskError && (
-            <div className="mb-2 text-[11px] text-status-red bg-rose-50 border border-rose-200 rounded-sm px-2 py-1.5">
-              {taskError}
-            </div>
-          )}
-          {loadingTasks ? (
-            <div className="text-[11px] text-muted-text py-2">Loading tasks…</div>
-          ) : tasks.length === 0 ? (
-            <div className="text-[11px] text-muted-text py-2">No onboarding tasks found.</div>
-          ) : (
-            <div className="space-y-2">
-              {tasks.map(t => (
-                <div
-                  key={t.id}
-                  className={`flex items-center gap-2 ${t.status === "Completed" ? "opacity-50" : ""}`}
-                >
-                  <div className="flex-1 text-[11px] text-dark-text leading-snug">
-                    {t.subject.replace(/^Onboarding - /, "")}
-                  </div>
-                  <select
-                    value={t.status}
-                    onChange={e => handleTaskStatus(t.id, e.target.value)}
-                    disabled={taskSaving.has(t.id)}
-                    className={`text-[10px] border border-panel-border rounded-sm px-1.5 py-0.5 bg-white focus:outline-none focus:border-protocol-blue disabled:cursor-wait flex-shrink-0 ${taskStatusColor(t.status)}`}
-                  >
-                    <option value="Not Started">Not Started</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Notes & Chatter */}

@@ -34,14 +34,24 @@ export async function GET(req: Request) {
   try {
     const conn = await getSalesforceConnection();
 
-    // Chatter feed posts on the account (text and content posts only, skip tracked changes)
+    // Look up the linked project so we can pull chatter from it too
+    const projRecs: any[] = await (conn as any)
+      .query(`SELECT Id FROM Project__c WHERE Account__c = '${accountId}' AND Stage__c IN ('Onboard','Hypercare','Approved') LIMIT 1`)
+      .then((r: any) => r.records ?? []);
+    const projectId = projRecs[0]?.Id ?? null;
+
+    // Build parent ID list: always include account, add project if found
+    const parentIds = [accountId, ...(projectId ? [projectId] : [])];
+    const inClause = parentIds.map(id => `'${id}'`).join(",");
+
+    // Chatter feed posts on account and/or project
     const feedRecs: any[] = await (conn as any)
-      .query(`SELECT Id, Body, CreatedDate, CreatedBy.Name, Type FROM FeedItem WHERE ParentId = '${accountId}' AND Type IN ('TextPost','ContentPost','LinkPost') ORDER BY CreatedDate DESC LIMIT 30`)
+      .query(`SELECT Id, Body, CreatedDate, CreatedBy.Name, Type FROM FeedItem WHERE ParentId IN (${inClause}) AND Type IN ('TextPost','ContentPost','LinkPost') ORDER BY CreatedDate DESC LIMIT 40`)
       .then((r: any) => r.records ?? []);
 
-    // Classic Notes on the account
+    // Classic Notes on account and/or project
     const noteRecs: any[] = await (conn as any)
-      .query(`SELECT Id, Title, Body, CreatedDate, CreatedBy.Name FROM Note WHERE ParentId = '${accountId}' ORDER BY CreatedDate DESC LIMIT 20`)
+      .query(`SELECT Id, Title, Body, CreatedDate, CreatedBy.Name FROM Note WHERE ParentId IN (${inClause}) ORDER BY CreatedDate DESC LIMIT 20`)
       .then((r: any) => r.records ?? []);
 
     const feed = [
