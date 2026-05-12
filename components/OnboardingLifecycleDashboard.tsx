@@ -811,7 +811,7 @@ function AccountDetail({
     status === "Completed" ? "text-status-green" : status === "In Progress" ? "text-protocol-blue" : "text-muted-text";
 
   const execStatusColor = (v: string | null) =>
-    v === "On Track" ? "text-status-green" : v === "At Risk" ? "text-status-yellow" : v === "Needs Attention" ? "text-status-red" : "text-muted-text";
+    v === "On Track" ? "text-status-green" : v === "At Risk" ? "text-status-yellow" : v === "Needs Attention" ? "text-status-red" : v === "Churned" ? "text-status-red" : "text-muted-text";
 
   const healthColor = (v: string | null) =>
     v === "On Track" ? "text-status-green" : v === "At Risk" ? "text-status-yellow" : (v === "Critical" || v === "Blocked") ? "text-status-red" : "text-muted-text";
@@ -939,10 +939,10 @@ function AccountDetail({
                 className={`w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait ${execStatusColor(a.executiveProgramStatus)}`}
               >
                 <option value="">— Select —</option>
-                <option value="On Track">On Track</option>
-                <option value="At Risk">At Risk</option>
-                <option value="Needs Attention">Needs Attention</option>
-                <option value="Churned">Churned</option>
+                <option value="On Track">Green - Healthy</option>
+                <option value="At Risk">Yellow - At Risk</option>
+                <option value="Needs Attention">Red - Critical</option>
+                <option value="Churned">Churned Account</option>
               </select>
             </div>
           </div>
