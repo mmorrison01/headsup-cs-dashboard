@@ -14,6 +14,9 @@ const BUCKET_TO_SF: Record<string, string> = {
 };
 
 const VALID_STATUSES = new Set(["Not Started", "In Progress", "Completed"]);
+const VALID_TEMPERATURES = new Set(["Watch", "Healthy", "Critical"]);
+const VALID_PROJECT_HEALTH = new Set(["On Track", "At Risk", "Critical", "Blocked"]);
+const VALID_EXEC_STATUS = new Set(["On Track", "At Risk", "Needs Attention", "Churned"]);
 
 export async function POST(req: Request) {
   if (!isSalesforceConfigured()) {
@@ -46,6 +49,30 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid task update" }, { status: 400 });
       }
       await (conn as any).sobject("Task").update({ Id: taskId, Status: status });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.type === "projectField") {
+      const { projectId, field, value } = body;
+      if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
+      if (field === "Customer_Temperature__c" && value && !VALID_TEMPERATURES.has(value))
+        return NextResponse.json({ error: "Invalid temperature value" }, { status: 400 });
+      if (field === "Project_Health__c" && value && !VALID_PROJECT_HEALTH.has(value))
+        return NextResponse.json({ error: "Invalid project health value" }, { status: 400 });
+      if (!["Customer_Temperature__c", "Project_Health__c"].includes(field))
+        return NextResponse.json({ error: "Field not allowed" }, { status: 400 });
+      await (conn as any).sobject("Project__c").update({ Id: projectId, [field]: value || null });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.type === "accountField") {
+      const { accountId, field, value } = body;
+      if (!accountId) return NextResponse.json({ error: "Missing accountId" }, { status: 400 });
+      if (field === "Executive_Program_Status__c" && value && !VALID_EXEC_STATUS.has(value))
+        return NextResponse.json({ error: "Invalid executive program status" }, { status: 400 });
+      if (!["Executive_Program_Status__c"].includes(field))
+        return NextResponse.json({ error: "Field not allowed" }, { status: 400 });
+      await (conn as any).sobject("Account").update({ Id: accountId, [field]: value || null });
       return NextResponse.json({ ok: true });
     }
 

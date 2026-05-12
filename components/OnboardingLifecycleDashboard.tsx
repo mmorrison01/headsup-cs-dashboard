@@ -54,6 +54,14 @@ interface ApiAccount {
   csmName: string | null;
   rtDone: boolean;
   tpDone: boolean;
+  projectId: string | null;
+  projectHealth: string | null;
+  solutionsConsultant: string | null;
+  servicePackage: string | null;
+  projectType: string | null;
+  hypercareDri: string | null;
+  accountStatus: string | null;
+  executiveProgramStatus: string | null;
 }
 
 interface Task {
@@ -156,6 +164,11 @@ export default function OnboardingLifecycleDashboard() {
   function handleBucketChange(accountId: string, newBucket: string) {
     setLocalAccounts(prev => prev.map(a => a.id === accountId ? { ...a, bucket: newBucket } : a));
     setSelectedAcct(prev => prev?.id === accountId ? { ...prev, bucket: newBucket } : prev);
+  }
+
+  function handleFieldChange(accountId: string, field: keyof ApiAccount, value: string | null) {
+    setLocalAccounts(prev => prev.map(a => a.id === accountId ? { ...a, [field]: value } : a));
+    setSelectedAcct(prev => prev?.id === accountId ? { ...prev, [field]: value } : prev);
   }
 
   const availableCsms = useMemo(() => {
@@ -650,6 +663,7 @@ export default function OnboardingLifecycleDashboard() {
             <AccountDetail
               account={selectedAcct}
               onBucketChange={handleBucketChange}
+              onFieldChange={handleFieldChange}
             />
           )}
         </div>
@@ -692,13 +706,16 @@ function FilterChip({
 function AccountDetail({
   account: a,
   onBucketChange,
+  onFieldChange,
 }: {
   account: ApiAccount;
   onBucketChange: (accountId: string, newBucket: string) => void;
+  onFieldChange: (accountId: string, field: keyof ApiAccount, value: string | null) => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [savingBucket, setSavingBucket] = useState(false);
+  const [fieldSaving, setFieldSaving] = useState<Set<string>>(new Set());
   const [taskSaving, setTaskSaving] = useState<Set<string>>(new Set());
   const [taskError, setTaskError] = useState<string | null>(null);
 
@@ -751,8 +768,53 @@ function AccountDetail({
     }
   }
 
+  async function handleProjectField(field: "Customer_Temperature__c" | "Project_Health__c", value: string) {
+    if (!a.projectId) return;
+    const localKey = field === "Customer_Temperature__c" ? "customerTemperature" : "projectHealth";
+    const prev = a[localKey as keyof ApiAccount];
+    onFieldChange(a.id, localKey as keyof ApiAccount, value || null);
+    setFieldSaving(s => new Set(s).add(field));
+    try {
+      const res = await fetch("/api/onboarding/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "projectField", projectId: a.projectId, field, value }),
+      });
+      if (!res.ok) onFieldChange(a.id, localKey as keyof ApiAccount, prev as string | null);
+    } catch {
+      onFieldChange(a.id, localKey as keyof ApiAccount, prev as string | null);
+    } finally {
+      setFieldSaving(s => { const n = new Set(s); n.delete(field); return n; });
+    }
+  }
+
+  async function handleAccountField(field: "Executive_Program_Status__c", value: string) {
+    const localKey = "executiveProgramStatus";
+    const prev = a.executiveProgramStatus;
+    onFieldChange(a.id, localKey, value || null);
+    setFieldSaving(s => new Set(s).add(field));
+    try {
+      const res = await fetch("/api/onboarding/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "accountField", accountId: a.id, field, value }),
+      });
+      if (!res.ok) onFieldChange(a.id, localKey, prev);
+    } catch {
+      onFieldChange(a.id, localKey, prev);
+    } finally {
+      setFieldSaving(s => { const n = new Set(s); n.delete(field); return n; });
+    }
+  }
+
   const taskStatusColor = (status: string) =>
     status === "Completed" ? "text-status-green" : status === "In Progress" ? "text-protocol-blue" : "text-muted-text";
+
+  const execStatusColor = (v: string | null) =>
+    v === "On Track" ? "text-status-green" : v === "At Risk" ? "text-status-yellow" : v === "Needs Attention" ? "text-status-red" : "text-muted-text";
+
+  const healthColor = (v: string | null) =>
+    v === "On Track" ? "text-status-green" : v === "At Risk" ? "text-status-yellow" : (v === "Critical" || v === "Blocked") ? "text-status-red" : "text-muted-text";
 
   return (
     <Panel
@@ -814,17 +876,74 @@ function AccountDetail({
             </div>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-text">Customer temp</div>
-            <div className="text-base font-medium mt-0.5">
-              <TempBadge temp={a.customerTemperature} />
-            </div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Customer health</div>
+            <select
+              value={a.customerTemperature ?? ""}
+              onChange={e => handleProjectField("Customer_Temperature__c", e.target.value)}
+              disabled={fieldSaving.has("Customer_Temperature__c") || !a.projectId}
+              className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+            >
+              <option value="">— Select —</option>
+              <option value="Healthy">Healthy</option>
+              <option value="Watch">Watch</option>
+              <option value="Critical">Critical</option>
+            </select>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-text">Parallel 1.0</div>
-            <div className={`font-display text-base font-medium tabular mt-0.5 ${
-              a.parallel10 ? "text-protocol-blue" : "text-muted-text"
-            }`}>
-              {a.parallel10 ? "Yes" : "No"}
+            <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Project health</div>
+            <select
+              value={a.projectHealth ?? ""}
+              onChange={e => handleProjectField("Project_Health__c", e.target.value)}
+              disabled={fieldSaving.has("Project_Health__c") || !a.projectId}
+              className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+            >
+              <option value="">— Select —</option>
+              <option value="On Track">On Track</option>
+              <option value="At Risk">At Risk</option>
+              <option value="Critical">Critical</option>
+              <option value="Blocked">Blocked</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Project & account details */}
+        <div className="pt-3 border-t border-panel-border">
+          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2.5">Account Details</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text">Solutions Consultant</div>
+              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.solutionsConsultant ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text">Hypercare DRI</div>
+              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.hypercareDri ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text">Service Package</div>
+              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.servicePackage ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text">Project Type</div>
+              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.projectType ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text">Account Status</div>
+              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.accountStatus ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Exec Program Status</div>
+              <select
+                value={a.executiveProgramStatus ?? ""}
+                onChange={e => handleAccountField("Executive_Program_Status__c", e.target.value)}
+                disabled={fieldSaving.has("Executive_Program_Status__c")}
+                className={`w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait ${execStatusColor(a.executiveProgramStatus)}`}
+              >
+                <option value="">— Select —</option>
+                <option value="On Track">On Track</option>
+                <option value="At Risk">At Risk</option>
+                <option value="Needs Attention">Needs Attention</option>
+                <option value="Churned">Churned</option>
+              </select>
             </div>
           </div>
         </div>

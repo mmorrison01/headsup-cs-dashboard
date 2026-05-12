@@ -74,9 +74,15 @@ export async function GET() {
     const acctGoLive: Record<string, string | null> = {};
     const acctTemperature: Record<string, string | null> = {};
     const acctParallel10: Record<string, boolean> = {};
+    const acctProjectHealth: Record<string, string | null> = {};
+    const acctServicePackage: Record<string, string | null> = {};
+    const acctProjectType: Record<string, string | null> = {};
+    const acctSolutionsConsultant: Record<string, string | null> = {};
+    const acctHypercareDri: Record<string, string | null> = {};
+    const acctProjectId: Record<string, string> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare','Approved') AND CSM__c != null`)
+      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare','Approved') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -85,6 +91,12 @@ export async function GET() {
       acctGoLive[acctId] = r.Customer_Planned_Go_Live_Date__c ?? null;
       acctTemperature[acctId] = r.Customer_Temperature__c ?? null;
       acctParallel10[acctId] = r.Parallel_1_0__c ?? false;
+      acctProjectHealth[acctId] = r.Project_Health__c ?? null;
+      acctServicePackage[acctId] = r.Service_Package__c ?? null;
+      acctProjectType[acctId] = r.Project_Type__c ?? null;
+      acctSolutionsConsultant[acctId] = r.Solutions_Consultant__r?.Name ?? null;
+      acctHypercareDri[acctId] = r.Hypercare_DRI__r?.Name ?? null;
+      acctProjectId[acctId] = r.Id;
     }
 
     // Onboarding status change dates from AccountHistory (field history tracking)
@@ -282,7 +294,7 @@ export async function GET() {
 
     // All active accounts for the workbench
     const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
+      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Account_Status__c, Executive_Program_Status__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
       .then((r: any) => r.records ?? []);
 
     const currentWeekNum = getMayWeekNumber();
@@ -323,7 +335,7 @@ export async function GET() {
         };
       }),
       bothDoneMetric: {
-        mayTarget: 255,
+        mayTarget: Math.round(totalActive * 0.70),
         baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
         newlyBothDone: CSMS.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
         teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
@@ -360,6 +372,14 @@ export async function GET() {
         csmName: acctCsm[r.Id] ? (CSM_IDS[acctCsm[r.Id]] ?? null) : null,
         rtDone: acctRtDone.has(r.Id),
         tpDone: acctTpDone.has(r.Id),
+        projectId: acctProjectId[r.Id] ?? null,
+        projectHealth: acctProjectHealth[r.Id] ?? null,
+        solutionsConsultant: acctSolutionsConsultant[r.Id] ?? null,
+        servicePackage: acctServicePackage[r.Id] ?? null,
+        projectType: acctProjectType[r.Id] ?? null,
+        hypercareDri: acctHypercareDri[r.Id] ?? null,
+        accountStatus: r.Account_Status__c ?? null,
+        executiveProgramStatus: r.Executive_Program_Status__c ?? null,
       })),
     });
   } catch (err) {
