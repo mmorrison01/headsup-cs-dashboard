@@ -135,6 +135,17 @@ export default function OnboardingLifecycleDashboard() {
   const [selectedProjectHealth, setSelectedProjectHealth] = useState<string>("all");
   const [selectedProjectType, setSelectedProjectType] = useState<string>("all");
   const [selectedExecStatus, setSelectedExecStatus] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<"accountName" | "bucket" | "arr" | "goLiveDate" | "daysInBucket" | "customerTemperature">("accountName");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
   const [selectedAcct, setSelectedAcct] = useState<ApiAccount | null>(null);
   const [localAccounts, setLocalAccounts] = useState<ApiAccount[]>([]);
 
@@ -257,6 +268,39 @@ export default function OnboardingLifecycleDashboard() {
     return bucketMatch && csmMatch && searchMatch && taskMatch
       && hypercareMatch && scMatch && customerHealthMatch
       && projectHealthMatch && projectTypeMatch && execStatusMatch;
+  });
+
+  const tempRank: Record<string, number> = { Red: 0, Yellow: 1, Green: 2 };
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    let av: string | number | null = null;
+    let bv: string | number | null = null;
+    if (sortKey === "accountName") {
+      av = a.accountName?.toLowerCase() ?? null;
+      bv = b.accountName?.toLowerCase() ?? null;
+    } else if (sortKey === "bucket") {
+      av = a.bucket ?? null;
+      bv = b.bucket ?? null;
+    } else if (sortKey === "arr") {
+      av = a.arr ?? null;
+      bv = b.arr ?? null;
+    } else if (sortKey === "goLiveDate") {
+      av = a.goLiveDate ? new Date(a.goLiveDate).getTime() : null;
+      bv = b.goLiveDate ? new Date(b.goLiveDate).getTime() : null;
+    } else if (sortKey === "daysInBucket") {
+      av = a.daysInBucket;
+      bv = b.daysInBucket;
+    } else if (sortKey === "customerTemperature") {
+      av = a.customerTemperature != null ? tempRank[a.customerTemperature] ?? 99 : null;
+      bv = b.customerTemperature != null ? tempRank[b.customerTemperature] ?? 99 : null;
+    }
+    // Push nulls/undefined to bottom regardless of direction
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
   });
 
   const updatedLabel = new Date(data.updatedAt).toLocaleTimeString("en-US", {
@@ -745,16 +789,16 @@ export default function OnboardingLifecycleDashboard() {
               <table className="w-full text-sm">
                 <thead className="bg-subtle border-b border-panel-border sticky top-0 z-10">
                   <tr className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
-                    <th className="text-left px-4 py-2.5 font-medium">Account</th>
-                    <th className="text-center px-2 py-2.5 font-medium">Bucket</th>
-                    <th className="text-right px-2 py-2.5 font-medium">ARR</th>
-                    <th className="text-right px-2 py-2.5 font-medium">Go-Live</th>
-                    <th className="text-right px-2 py-2.5 font-medium">Days</th>
-                    <th className="text-left px-2 py-2.5 font-medium">Temp</th>
+                    <SortableTh align="left" extraClass="px-4" sortKey="accountName" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Account</SortableTh>
+                    <SortableTh align="center" sortKey="bucket" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Bucket</SortableTh>
+                    <SortableTh align="right" sortKey="arr" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>ARR</SortableTh>
+                    <SortableTh align="right" sortKey="goLiveDate" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Go-Live</SortableTh>
+                    <SortableTh align="right" sortKey="daysInBucket" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Days</SortableTh>
+                    <SortableTh align="left" sortKey="customerTemperature" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Temp</SortableTh>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(a => (
+                  {sorted.map(a => (
                     <tr
                       key={a.id}
                       onClick={() => setSelectedAcct(a)}
@@ -828,6 +872,34 @@ function TempBadge({ temp }: { temp: string | null }) {
   if (!temp) return <span className="text-muted-text">—</span>;
   const cls = temp === "Green" ? "text-status-green" : temp === "Red" ? "text-status-red" : temp === "Yellow" ? "text-status-yellow" : "text-muted-text";
   return <span className={cls}>{temp}</span>;
+}
+
+function SortableTh({
+  children, sortKey, activeKey, dir, onToggle, align = "left", extraClass = "",
+}: {
+  children: React.ReactNode;
+  sortKey: "accountName" | "bucket" | "arr" | "goLiveDate" | "daysInBucket" | "customerTemperature";
+  activeKey: string;
+  dir: "asc" | "desc";
+  onToggle: (k: "accountName" | "bucket" | "arr" | "goLiveDate" | "daysInBucket" | "customerTemperature") => void;
+  align?: "left" | "right" | "center";
+  extraClass?: string;
+}) {
+  const active = activeKey === sortKey;
+  const alignClass = align === "right" ? "text-right justify-end" : align === "center" ? "text-center justify-center" : "text-left justify-start";
+  return (
+    <th
+      onClick={() => onToggle(sortKey)}
+      className={`${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"} ${extraClass || "px-2"} py-2.5 font-medium cursor-pointer select-none hover:text-midnight transition-colors ${active ? "text-midnight" : ""}`}
+    >
+      <span className={`inline-flex items-center gap-1 ${alignClass}`}>
+        {children}
+        <span className={`text-[8px] leading-none ${active ? "opacity-100" : "opacity-30"}`}>
+          {active ? (dir === "asc" ? "▲" : "▼") : "▲"}
+        </span>
+      </span>
+    </th>
+  );
 }
 
 function FilterChip({
