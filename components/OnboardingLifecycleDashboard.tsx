@@ -129,6 +129,12 @@ export default function OnboardingLifecycleDashboard() {
   const [selectedCsm, setSelectedCsm] = useState<string>("all");
   const [selectedSearch, setSelectedSearch] = useState<string>("");
   const [taskFilter, setTaskFilter] = useState<"all" | "needs-rt" | "needs-tp">("all");
+  const [hypercareOnly, setHypercareOnly] = useState<boolean>(false);
+  const [selectedSc, setSelectedSc] = useState<string>("all");
+  const [selectedCustomerHealth, setSelectedCustomerHealth] = useState<string>("all");
+  const [selectedProjectHealth, setSelectedProjectHealth] = useState<string>("all");
+  const [selectedProjectType, setSelectedProjectType] = useState<string>("all");
+  const [selectedExecStatus, setSelectedExecStatus] = useState<string>("all");
   const [selectedAcct, setSelectedAcct] = useState<ApiAccount | null>(null);
   const [localAccounts, setLocalAccounts] = useState<ApiAccount[]>([]);
 
@@ -177,6 +183,40 @@ export default function OnboardingLifecycleDashboard() {
     return Array.from(set).sort();
   }, [localAccounts]);
 
+  const availableScs = useMemo(() => {
+    const set = new Set<string>();
+    localAccounts.forEach(a => { if (a.solutionsConsultant) set.add(a.solutionsConsultant); });
+    return Array.from(set).sort();
+  }, [localAccounts]);
+
+  const availableCustomerHealth = useMemo(() => {
+    const set = new Set<string>();
+    localAccounts.forEach(a => { if (a.customerTemperature) set.add(a.customerTemperature); });
+    return Array.from(set).sort();
+  }, [localAccounts]);
+
+  const availableProjectHealth = useMemo(() => {
+    const set = new Set<string>();
+    localAccounts.forEach(a => { if (a.projectHealth) set.add(a.projectHealth); });
+    return Array.from(set).sort();
+  }, [localAccounts]);
+
+  const availableProjectTypes = useMemo(() => {
+    const set = new Set<string>();
+    localAccounts.forEach(a => { if (a.projectType) set.add(a.projectType); });
+    return Array.from(set).sort();
+  }, [localAccounts]);
+
+  const availableExecStatuses = useMemo(() => {
+    const set = new Set<string>();
+    localAccounts.forEach(a => { if (a.executiveProgramStatus) set.add(a.executiveProgramStatus); });
+    return Array.from(set).sort();
+  }, [localAccounts]);
+
+  const hypercareCount = useMemo(() => {
+    return localAccounts.filter(a => !!a.hypercareDri).length;
+  }, [localAccounts]);
+
   if (loading) {
     return (
       <div className="tab-fade-in flex items-center justify-center py-32">
@@ -208,7 +248,15 @@ export default function OnboardingLifecycleDashboard() {
     const csmMatch = selectedCsm === "all" || a.csmName === selectedCsm;
     const searchMatch = !selectedSearch || a.accountName.toLowerCase().includes(selectedSearch.toLowerCase());
     const taskMatch = taskFilter === "all" || (taskFilter === "needs-rt" && !a.rtDone && a.tpDone) || (taskFilter === "needs-tp" && a.rtDone && !a.tpDone);
-    return bucketMatch && csmMatch && searchMatch && taskMatch;
+    const hypercareMatch = !hypercareOnly || !!a.hypercareDri;
+    const scMatch = selectedSc === "all" || a.solutionsConsultant === selectedSc;
+    const customerHealthMatch = selectedCustomerHealth === "all" || a.customerTemperature === selectedCustomerHealth;
+    const projectHealthMatch = selectedProjectHealth === "all" || a.projectHealth === selectedProjectHealth;
+    const projectTypeMatch = selectedProjectType === "all" || a.projectType === selectedProjectType;
+    const execStatusMatch = selectedExecStatus === "all" || a.executiveProgramStatus === selectedExecStatus;
+    return bucketMatch && csmMatch && searchMatch && taskMatch
+      && hypercareMatch && scMatch && customerHealthMatch
+      && projectHealthMatch && projectTypeMatch && execStatusMatch;
   });
 
   const updatedLabel = new Date(data.updatedAt).toLocaleTimeString("en-US", {
@@ -536,7 +584,7 @@ export default function OnboardingLifecycleDashboard() {
       <SectionHeader
         kicker="Account Workbench"
         title="Active onboarding accounts"
-        sub="Filter by bucket or CSM. Click an account to view details and update status. Changes write directly to Salesforce."
+        sub="Combine filters — bucket, CSM, Hypercare, SC, health, type, exec status. Click an account to view details and update status. Changes write directly to Salesforce."
       />
 
       {/* Bucket filters */}
@@ -556,7 +604,7 @@ export default function OnboardingLifecycleDashboard() {
 
       {/* CSM filters */}
       {availableCsms.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-2">
           <FilterChip label="All CSMs" count={0} active={selectedCsm === "all"} onClick={() => setSelectedCsm("all")} showCount={false} color="#475569" />
           {availableCsms.map(csm => (
             <FilterChip
@@ -566,6 +614,110 @@ export default function OnboardingLifecycleDashboard() {
               active={selectedCsm === csm}
               onClick={() => setSelectedCsm(csm)}
               color="#475569"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Hypercare toggle */}
+      {hypercareCount > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Hypercare</span>
+          <FilterChip
+            label="Hypercare only"
+            count={hypercareCount}
+            active={hypercareOnly}
+            onClick={() => setHypercareOnly(!hypercareOnly)}
+            color="#8B5CF6"
+          />
+        </div>
+      )}
+
+      {/* Solutions Consultant filters */}
+      {availableScs.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Solutions Consultant</span>
+          <FilterChip label="All SCs" count={0} active={selectedSc === "all"} onClick={() => setSelectedSc("all")} showCount={false} color="#0EA5E9" />
+          {availableScs.map(sc => (
+            <FilterChip
+              key={sc}
+              label={sc}
+              count={localAccounts.filter(a => a.solutionsConsultant === sc).length}
+              active={selectedSc === sc}
+              onClick={() => setSelectedSc(sc)}
+              color="#0EA5E9"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Customer Health filters */}
+      {availableCustomerHealth.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Customer Health</span>
+          <FilterChip label="All" count={0} active={selectedCustomerHealth === "all"} onClick={() => setSelectedCustomerHealth("all")} showCount={false} color="#475569" />
+          {availableCustomerHealth.map(h => (
+            <FilterChip
+              key={h}
+              label={h}
+              count={localAccounts.filter(a => a.customerTemperature === h).length}
+              active={selectedCustomerHealth === h}
+              onClick={() => setSelectedCustomerHealth(h)}
+              color={h === "Green" ? "#10B981" : h === "Yellow" ? "#F59E0B" : h === "Red" ? "#EF4444" : "#475569"}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Project Health filters */}
+      {availableProjectHealth.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Project Health</span>
+          <FilterChip label="All" count={0} active={selectedProjectHealth === "all"} onClick={() => setSelectedProjectHealth("all")} showCount={false} color="#475569" />
+          {availableProjectHealth.map(h => (
+            <FilterChip
+              key={h}
+              label={h}
+              count={localAccounts.filter(a => a.projectHealth === h).length}
+              active={selectedProjectHealth === h}
+              onClick={() => setSelectedProjectHealth(h)}
+              color={h === "Green" || h === "On Track" ? "#10B981" : h === "Yellow" || h === "At Risk" ? "#F59E0B" : h === "Red" || h === "Off Track" ? "#EF4444" : "#475569"}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Project Type filters */}
+      {availableProjectTypes.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Project Type</span>
+          <FilterChip label="All" count={0} active={selectedProjectType === "all"} onClick={() => setSelectedProjectType("all")} showCount={false} color="#475569" />
+          {availableProjectTypes.map(t => (
+            <FilterChip
+              key={t}
+              label={t}
+              count={localAccounts.filter(a => a.projectType === t).length}
+              active={selectedProjectType === t}
+              onClick={() => setSelectedProjectType(t)}
+              color="#475569"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Executive Program Status filters */}
+      {availableExecStatuses.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4 items-center">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Exec Program Status</span>
+          <FilterChip label="All" count={0} active={selectedExecStatus === "all"} onClick={() => setSelectedExecStatus("all")} showCount={false} color="#475569" />
+          {availableExecStatuses.map(s => (
+            <FilterChip
+              key={s}
+              label={s}
+              count={localAccounts.filter(a => a.executiveProgramStatus === s).length}
+              active={selectedExecStatus === s}
+              onClick={() => setSelectedExecStatus(s)}
+              color={s === "On Track" ? "#10B981" : s === "At Risk" ? "#F59E0B" : s === "Needs Attention" ? "#EF4444" : "#475569"}
             />
           ))}
         </div>
