@@ -741,9 +741,9 @@ export default function OnboardingLifecycleDashboard() {
             subtitle={`${filtered.length} accounts`}
             noPadding
           >
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[calc(100vh-220px)]">
               <table className="w-full text-sm">
-                <thead className="bg-subtle border-b border-panel-border">
+                <thead className="bg-subtle border-b border-panel-border sticky top-0 z-10">
                   <tr className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
                     <th className="text-left px-4 py-2.5 font-medium">Account</th>
                     <th className="text-center px-2 py-2.5 font-medium">Bucket</th>
