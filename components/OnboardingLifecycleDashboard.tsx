@@ -940,6 +940,9 @@ function AccountDetail({
   const [fieldSaving, setFieldSaving] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<{ id: string; type: "chatter" | "note"; author: string; date: string; title: string | null; body: string }[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
+  const [jiraTickets, setJiraTickets] = useState<Array<{ key: string; summary: string; status: string; statusCategory: string; requestType: string | null; created: string; url: string }>>([]);
+  const [loadingJira, setLoadingJira] = useState(false);
+  const [jiraError, setJiraError] = useState<string | null>(null);
 
   useEffect(() => {
     setFeed([]);
@@ -950,6 +953,24 @@ function AccountDetail({
       .catch(() => {})
       .finally(() => setLoadingFeed(false));
   }, [a.id]);
+
+  useEffect(() => {
+    setJiraTickets([]);
+    setJiraError(null);
+    setLoadingJira(true);
+    fetch(`/api/onboarding/jira-tickets?accountName=${encodeURIComponent(a.accountName)}`)
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) {
+          setJiraError(d.error ?? `${r.status}`);
+          setJiraTickets([]);
+        } else {
+          setJiraTickets(d.tickets ?? []);
+        }
+      })
+      .catch(e => setJiraError(String(e)))
+      .finally(() => setLoadingJira(false));
+  }, [a.id, a.accountName]);
 
   async function handleBucketSelect(newBucket: string) {
     if (newBucket === a.bucket) return;
@@ -1167,6 +1188,66 @@ function AccountDetail({
                   <div className="text-[11px] text-dark-text leading-snug whitespace-pre-wrap">{item.body}</div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Associated Jira Tickets (HHC project) */}
+        <div className="mt-4 border-t border-panel-border pt-4">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+              Jira Tickets · HHC {jiraTickets.length > 0 && <span className="text-muted-text/70">({jiraTickets.length} open)</span>}
+            </div>
+          </div>
+          {loadingJira ? (
+            <div className="text-[11px] text-muted-text py-2">Loading…</div>
+          ) : jiraError ? (
+            <div className="text-[11px] text-status-yellow py-2">Unable to load Jira tickets. {jiraError}</div>
+          ) : jiraTickets.length === 0 ? (
+            <div className="text-[11px] text-muted-text py-2">No open HHC tickets found for this account.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="text-[9px] uppercase tracking-wider text-muted-text font-medium border-b border-panel-border">
+                    <th className="text-left py-1.5 pr-2 font-medium">Type</th>
+                    <th className="text-left py-1.5 pr-2 font-medium">Key</th>
+                    <th className="text-left py-1.5 pr-2 font-medium">Summary</th>
+                    <th className="text-left py-1.5 pr-2 font-medium">Status</th>
+                    <th className="text-right py-1.5 font-medium">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jiraTickets.map(t => (
+                    <tr key={t.key} className="border-b border-panel-border/50 last:border-0">
+                      <td className="py-1.5 pr-2 text-muted-text whitespace-nowrap">{t.requestType ?? "—"}</td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap">
+                        <a
+                          href={t.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-protocol-blue hover:underline font-mono"
+                        >
+                          {t.key}
+                        </a>
+                      </td>
+                      <td className="py-1.5 pr-2 text-dark-text">{t.summary}</td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap">
+                        <span className={`inline-block px-1.5 py-0.5 rounded-sm text-[10px] font-medium ${
+                          t.statusCategory === "Done" ? "bg-emerald-50 text-status-green"
+                            : t.statusCategory === "In Progress" ? "bg-amber-50 text-status-yellow"
+                            : "bg-slate-100 text-muted-text"
+                        }`}>
+                          {t.status}
+                        </span>
+                      </td>
+                      <td className="py-1.5 text-right text-muted-text whitespace-nowrap">
+                        {new Date(t.created).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
