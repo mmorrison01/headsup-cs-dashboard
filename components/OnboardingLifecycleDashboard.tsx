@@ -938,6 +938,9 @@ function AccountDetail({
 }) {
   const [savingBucket, setSavingBucket] = useState(false);
   const [fieldSaving, setFieldSaving] = useState<Set<string>>(new Set());
+  const [tasks, setTasks] = useState<{ id: string; subject: string; status: string; assignedTo: string; dueDate: string | null; isClosed: boolean }[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [taskSaving, setTaskSaving] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<{ id: string; type: "chatter" | "note"; author: string; date: string; title: string | null; body: string }[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [jiraTickets, setJiraTickets] = useState<Array<{ key: string; summary: string; status: string; statusCategory: string; requestType: string | null; created: string; url: string }>>([]);
@@ -945,6 +948,14 @@ function AccountDetail({
   const [jiraError, setJiraError] = useState<string | null>(null);
 
   useEffect(() => {
+    setTasks([]);
+    setLoadingTasks(true);
+    fetch(`/api/onboarding/tasks?accountId=${a.id}`)
+      .then(r => r.json())
+      .then(d => setTasks(d.tasks ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingTasks(false));
+
     setFeed([]);
     setLoadingFeed(true);
     fetch(`/api/onboarding/notes?accountId=${a.id}`)
@@ -971,6 +982,39 @@ function AccountDetail({
       .catch(e => setJiraError(String(e)))
       .finally(() => setLoadingJira(false));
   }, [a.id, a.accountName]);
+
+  type TaskRow = { id: string; subject: string; status: string; assignedTo: string; dueDate: string | null; isClosed: boolean };
+
+  async function handleTaskStatus(taskId: string, newStatus: string) {
+    const prev = tasks.find((t: TaskRow) => t.id === taskId)?.status;
+    setTasks((ts: TaskRow[]) => ts.map((t: TaskRow) => t.id === taskId
+      ? { ...t, status: newStatus, isClosed: newStatus === "Completed" }
+      : t
+    ));
+    setTaskSaving((s: Set<string>) => new Set(s).add(taskId));
+    try {
+      const res = await fetch("/api/onboarding/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, status: newStatus }),
+      });
+      if (!res.ok && prev) {
+        setTasks((ts: TaskRow[]) => ts.map((t: TaskRow) => t.id === taskId
+          ? { ...t, status: prev, isClosed: prev === "Completed" }
+          : t
+        ));
+      }
+    } catch {
+      if (prev) {
+        setTasks((ts: TaskRow[]) => ts.map((t: TaskRow) => t.id === taskId
+          ? { ...t, status: prev, isClosed: prev === "Completed" }
+          : t
+        ));
+      }
+    } finally {
+      setTaskSaving((s: Set<string>) => { const n = new Set(s); n.delete(taskId); return n; });
+    }
+  }
 
   async function handleBucketSelect(newBucket: string) {
     if (newBucket === a.bucket) return;
@@ -1162,6 +1206,63 @@ function AccountDetail({
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Project Tasks */}
+        <div className="pt-3 border-t border-panel-border">
+          <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2.5">Project Tasks</div>
+          {loadingTasks ? (
+            <div className="text-[11px] text-muted-text py-2">Loading tasks…</div>
+          ) : tasks.length === 0 ? (
+            <div className="text-[11px] text-muted-text py-2">No tasks found.</div>
+          ) : (
+            <div className="space-y-1">
+              {tasks.filter((t: { isClosed: boolean }) => !t.isClosed).length > 0 && (
+                <>
+                  <div className="text-[9px] uppercase tracking-wider text-muted-text font-medium mb-1.5">
+                    Open ({tasks.filter((t: { isClosed: boolean }) => !t.isClosed).length})
+                  </div>
+                  {tasks.filter((t: { isClosed: boolean }) => !t.isClosed).map((task: { id: string; subject: string; status: string; assignedTo: string; isClosed: boolean }) => (
+                    <div key={task.id} className="flex items-start gap-2 py-1.5 border-b border-panel-border last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] text-dark-text leading-snug">
+                          {task.subject.replace(/^Onboarding\s*[-–]\s*/i, "")}
+                        </div>
+                        <div className="text-[10px] text-muted-text mt-0.5">{task.assignedTo}</div>
+                      </div>
+                      <select
+                        value={task.status}
+                        onChange={e => handleTaskStatus(task.id, (e.target as HTMLSelectElement).value)}
+                        disabled={taskSaving.has(task.id)}
+                        className="text-[10px] border border-panel-border rounded-sm px-1.5 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait flex-shrink-0"
+                      >
+                        <option value="New">New</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Waiting on Someone Else">Waiting</option>
+                        <option value="Deferred">Deferred</option>
+                      </select>
+                    </div>
+                  ))}
+                </>
+              )}
+              {tasks.filter((t: { isClosed: boolean }) => t.isClosed).length > 0 && (
+                <>
+                  <div className="text-[9px] uppercase tracking-wider text-muted-text font-medium mb-1.5 mt-3">
+                    Completed ({tasks.filter((t: { isClosed: boolean }) => t.isClosed).length})
+                  </div>
+                  {tasks.filter((t: { isClosed: boolean }) => t.isClosed).map((task: { id: string; subject: string; status: string; assignedTo: string; isClosed: boolean }) => (
+                    <div key={task.id} className="flex items-center gap-2 py-1 border-b border-panel-border last:border-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-status-green flex-shrink-0" />
+                      <div className="text-[11px] text-muted-text line-through">
+                        {task.subject.replace(/^Onboarding\s*[-–]\s*/i, "")}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Notes & Chatter */}
