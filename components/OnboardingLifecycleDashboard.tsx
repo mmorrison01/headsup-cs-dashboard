@@ -62,6 +62,7 @@ interface ApiAccount {
   hypercareDri: string | null;
   accountStatus: string | null;
   executiveProgramStatus: string | null;
+  stage: string | null;
 }
 
 interface Task {
@@ -126,6 +127,7 @@ export default function OnboardingLifecycleDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<string>("all");
+  const [selectedStage, setSelectedStage] = useState<string>("all");
   const [selectedCsm, setSelectedCsm] = useState<string>("all");
   const [selectedSearch, setSelectedSearch] = useState<string>("");
   const [taskFilter, setTaskFilter] = useState<"all" | "needs-rt" | "needs-tp">("all");
@@ -256,6 +258,7 @@ export default function OnboardingLifecycleDashboard() {
 
   const filtered = localAccounts.filter(a => {
     const bucketMatch = selectedBucket === "all" || a.bucket === selectedBucket;
+    const stageMatch = selectedStage === "all" || a.stage === selectedStage;
     const csmMatch = selectedCsm === "all" || a.csmName === selectedCsm;
     const searchMatch = !selectedSearch || a.accountName.toLowerCase().includes(selectedSearch.toLowerCase());
     const taskMatch = taskFilter === "all" || (taskFilter === "needs-rt" && !a.rtDone && a.tpDone) || (taskFilter === "needs-tp" && a.rtDone && !a.tpDone);
@@ -265,7 +268,7 @@ export default function OnboardingLifecycleDashboard() {
     const projectHealthMatch = selectedProjectHealth === "all" || a.projectHealth === selectedProjectHealth;
     const projectTypeMatch = selectedProjectType === "all" || a.projectType === selectedProjectType;
     const execStatusMatch = selectedExecStatus === "all" || a.executiveProgramStatus === selectedExecStatus;
-    return bucketMatch && csmMatch && searchMatch && taskMatch
+    return bucketMatch && stageMatch && csmMatch && searchMatch && taskMatch
       && hypercareMatch && scMatch && customerHealthMatch
       && projectHealthMatch && projectTypeMatch && execStatusMatch;
   });
@@ -642,6 +645,21 @@ export default function OnboardingLifecycleDashboard() {
             active={selectedBucket === b}
             onClick={() => setSelectedBucket(b)}
             color={BUCKET_COLORS[b]}
+          />
+        ))}
+      </div>
+
+      {/* Stage filters */}
+      <div className="flex flex-wrap gap-2 mb-2">
+        <FilterChip label="All" count={localAccounts.length} active={selectedStage === "all"} onClick={() => setSelectedStage("all")} />
+        {(["Onboard", "Hypercare", "Approved", "Completed"] as const).map(s => (
+          <FilterChip
+            key={s}
+            label={s}
+            count={localAccounts.filter(a => a.stage === s).length}
+            active={selectedStage === s}
+            onClick={() => setSelectedStage(s)}
+            color="#0EA5E9"
           />
         ))}
       </div>
