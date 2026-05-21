@@ -964,6 +964,19 @@ function AccountDetail({
   const [jiraTickets, setJiraTickets] = useState<Array<{ key: string; summary: string; status: string; statusCategory: string; requestType: string | null; created: string; url: string }>>([]);
   const [loadingJira, setLoadingJira] = useState(false);
   const [jiraError, setJiraError] = useState<string | null>(null);
+  const [fieldOptions, setFieldOptions] = useState<{
+    servicePackageValues: string[];
+    projectTypeValues: string[];
+    accountStatusValues: string[];
+    users: { id: string; name: string }[];
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/onboarding/field-options")
+      .then(r => r.json())
+      .then(setFieldOptions)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setTasks([]);
@@ -1049,29 +1062,45 @@ function AccountDetail({
     }
   }
 
-  async function handleProjectField(field: "Customer_Temperature__c" | "Project_Health__c", value: string) {
+  type ProjectField = "Customer_Temperature__c" | "Project_Health__c" | "Service_Package__c" | "Project_Type__c" | "Solutions_Consultant__c" | "Hypercare_DRI__c";
+  const PROJECT_FIELD_LOCAL_KEY: Record<ProjectField, keyof ApiAccount> = {
+    "Customer_Temperature__c": "customerTemperature",
+    "Project_Health__c": "projectHealth",
+    "Service_Package__c": "servicePackage",
+    "Project_Type__c": "projectType",
+    "Solutions_Consultant__c": "solutionsConsultant",
+    "Hypercare_DRI__c": "hypercareDri",
+  };
+
+  async function handleProjectField(field: ProjectField, sfValue: string, displayValue?: string) {
     if (!a.projectId) return;
-    const localKey = field === "Customer_Temperature__c" ? "customerTemperature" : "projectHealth";
-    const prev = a[localKey as keyof ApiAccount];
-    onFieldChange(a.id, localKey as keyof ApiAccount, value || null);
+    const localKey = PROJECT_FIELD_LOCAL_KEY[field];
+    const prev = a[localKey];
+    onFieldChange(a.id, localKey, displayValue ?? sfValue ?? null);
     setFieldSaving(s => new Set(s).add(field));
     try {
       const res = await fetch("/api/onboarding/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "projectField", projectId: a.projectId, field, value }),
+        body: JSON.stringify({ type: "projectField", projectId: a.projectId, field, value: sfValue }),
       });
-      if (!res.ok) onFieldChange(a.id, localKey as keyof ApiAccount, prev as string | null);
+      if (!res.ok) onFieldChange(a.id, localKey, prev as string | null);
     } catch {
-      onFieldChange(a.id, localKey as keyof ApiAccount, prev as string | null);
+      onFieldChange(a.id, localKey, prev as string | null);
     } finally {
       setFieldSaving(s => { const n = new Set(s); n.delete(field); return n; });
     }
   }
 
-  async function handleAccountField(field: "Executive_Program_Status__c", value: string) {
-    const localKey = "executiveProgramStatus";
-    const prev = a.executiveProgramStatus;
+  type AccountFieldKey = "Executive_Program_Status__c" | "Account_Status__c";
+  const ACCOUNT_FIELD_LOCAL_KEY: Record<AccountFieldKey, keyof ApiAccount> = {
+    "Executive_Program_Status__c": "executiveProgramStatus",
+    "Account_Status__c": "accountStatus",
+  };
+
+  async function handleAccountField(field: AccountFieldKey, value: string) {
+    const localKey = ACCOUNT_FIELD_LOCAL_KEY[field];
+    const prev = a[localKey];
     onFieldChange(a.id, localKey, value || null);
     setFieldSaving(s => new Set(s).add(field));
     try {
@@ -1080,9 +1109,9 @@ function AccountDetail({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "accountField", accountId: a.id, field, value }),
       });
-      if (!res.ok) onFieldChange(a.id, localKey, prev);
+      if (!res.ok) onFieldChange(a.id, localKey, prev as string | null);
     } catch {
-      onFieldChange(a.id, localKey, prev);
+      onFieldChange(a.id, localKey, prev as string | null);
     } finally {
       setFieldSaving(s => { const n = new Set(s); n.delete(field); return n; });
     }
@@ -1188,26 +1217,88 @@ function AccountDetail({
         <div className="pt-3 border-t border-panel-border">
           <div className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium mb-2.5">Account Details</div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+            {/* Solutions Consultant — User lookup on Project__c */}
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-text">Solutions Consultant</div>
-              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.solutionsConsultant ?? "—"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Solutions Consultant</div>
+              <select
+                value={fieldOptions?.users.find(u => u.name === a.solutionsConsultant)?.id ?? ""}
+                onChange={e => {
+                  const user = fieldOptions?.users.find(u => u.id === e.target.value);
+                  handleProjectField("Solutions_Consultant__c", e.target.value, user?.name ?? "");
+                }}
+                disabled={fieldSaving.has("Solutions_Consultant__c") || !a.projectId || !fieldOptions}
+                className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+              >
+                <option value="">— Select —</option>
+                {fieldOptions?.users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
             </div>
+            {/* Hypercare DRI — User lookup on Project__c */}
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-text">Hypercare DRI</div>
-              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.hypercareDri ?? "—"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Hypercare DRI</div>
+              <select
+                value={fieldOptions?.users.find(u => u.name === a.hypercareDri)?.id ?? ""}
+                onChange={e => {
+                  const user = fieldOptions?.users.find(u => u.id === e.target.value);
+                  handleProjectField("Hypercare_DRI__c", e.target.value, user?.name ?? "");
+                }}
+                disabled={fieldSaving.has("Hypercare_DRI__c") || !a.projectId || !fieldOptions}
+                className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+              >
+                <option value="">— Select —</option>
+                {fieldOptions?.users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
             </div>
+            {/* Service Package — picklist on Project__c */}
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-text">Service Package</div>
-              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.servicePackage ?? "—"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Service Package</div>
+              <select
+                value={a.servicePackage ?? ""}
+                onChange={e => handleProjectField("Service_Package__c", e.target.value)}
+                disabled={fieldSaving.has("Service_Package__c") || !a.projectId || !fieldOptions}
+                className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+              >
+                <option value="">— Select —</option>
+                {fieldOptions?.servicePackageValues.map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
             </div>
+            {/* Project Type — picklist on Project__c */}
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-text">Project Type</div>
-              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.projectType ?? "—"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Project Type</div>
+              <select
+                value={a.projectType ?? ""}
+                onChange={e => handleProjectField("Project_Type__c", e.target.value)}
+                disabled={fieldSaving.has("Project_Type__c") || !a.projectId || !fieldOptions}
+                className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+              >
+                <option value="">— Select —</option>
+                {fieldOptions?.projectTypeValues.map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
             </div>
+            {/* Account Status — picklist on Account */}
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-text">Account Status</div>
-              <div className="text-[12px] font-medium text-dark-text mt-0.5">{a.accountStatus ?? "—"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Account Status</div>
+              <select
+                value={a.accountStatus ?? ""}
+                onChange={e => handleAccountField("Account_Status__c", e.target.value)}
+                disabled={fieldSaving.has("Account_Status__c") || !fieldOptions}
+                className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
+              >
+                <option value="">— Select —</option>
+                {fieldOptions?.accountStatusValues.map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
             </div>
+            {/* Exec Program Status — picklist on Account (existing) */}
             <div>
               <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Exec Program Status</div>
               <select

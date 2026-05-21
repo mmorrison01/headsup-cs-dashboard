@@ -62,7 +62,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid project health value" }, { status: 400 });
       if (field === "Stage__c" && value && !VALID_STAGES.has(value))
         return NextResponse.json({ error: "Invalid stage value" }, { status: 400 });
-      if (!["Customer_Temperature__c", "Project_Health__c", "Stage__c"].includes(field))
+      if (!["Customer_Temperature__c", "Project_Health__c", "Stage__c",
+            "Service_Package__c", "Project_Type__c",
+            "Solutions_Consultant__c", "Hypercare_DRI__c"].includes(field))
         return NextResponse.json({ error: "Field not allowed" }, { status: 400 });
       await (conn as any).sobject("Project__c").update({ Id: projectId, [field]: value || null });
       return NextResponse.json({ ok: true });
@@ -73,7 +75,7 @@ export async function POST(req: Request) {
       if (!accountId) return NextResponse.json({ error: "Missing accountId" }, { status: 400 });
       if (field === "Executive_Program_Status__c" && value && !VALID_EXEC_STATUS.has(value))
         return NextResponse.json({ error: "Invalid executive program status" }, { status: 400 });
-      if (!["Executive_Program_Status__c"].includes(field))
+      if (!["Executive_Program_Status__c", "Account_Status__c"].includes(field))
         return NextResponse.json({ error: "Field not allowed" }, { status: 400 });
       await (conn as any).sobject("Account").update({ Id: accountId, [field]: value || null });
       return NextResponse.json({ ok: true });
