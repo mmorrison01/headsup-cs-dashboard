@@ -1270,11 +1270,25 @@ function AccountDetail({
                     Completed ({tasks.filter((t: { isClosed: boolean }) => t.isClosed).length})
                   </div>
                   {tasks.filter((t: { isClosed: boolean }) => t.isClosed).map((task: { id: string; subject: string; status: string; assignedTo: string; isClosed: boolean }) => (
-                    <div key={task.id} className="flex items-center gap-2 py-1 border-b border-panel-border last:border-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-status-green flex-shrink-0" />
-                      <div className="text-[11px] text-muted-text line-through">
-                        {task.subject.replace(/^Onboarding\s*[-–]\s*/i, "")}
+                    <div key={task.id} className="flex items-start gap-2 py-1.5 border-b border-panel-border last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] text-muted-text line-through leading-snug">
+                          {task.subject.replace(/^Onboarding\s*[-–]\s*/i, "")}
+                        </div>
+                        <div className="text-[10px] text-muted-text mt-0.5">{task.assignedTo}</div>
                       </div>
+                      <select
+                        value={task.status}
+                        onChange={e => handleTaskStatus(task.id, (e.target as HTMLSelectElement).value)}
+                        disabled={taskSaving.has(task.id)}
+                        className="text-[10px] border border-panel-border rounded-sm px-1.5 py-1 bg-white text-muted-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait flex-shrink-0"
+                      >
+                        <option value="New">New</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Waiting on Someone Else">Waiting</option>
+                        <option value="Deferred">Deferred</option>
+                      </select>
                     </div>
                   ))}
                 </>
