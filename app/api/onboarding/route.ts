@@ -68,9 +68,11 @@ export async function GET() {
     }
     const allAcctIds = Object.keys(acctBucket);
 
-    // Active projects (Stage = Onboard / Hypercare / Approved) drive CSM assignments and metric denominators
+    // Active projects (Stage = Onboard / Hypercare / Approved / Completed) drive CSM assignments and detail fields.
+    // Completed projects are included so B7/Launched account detail fields render, but excluded from Active Book counts below.
     const projCsm: Record<string, string> = {};
     const projAcct: Record<string, string> = {};
+    const projStage: Record<string, string> = {};
     const acctGoLive: Record<string, string | null> = {};
     const acctTemperature: Record<string, string | null> = {};
     const acctParallel10: Record<string, boolean> = {};
@@ -80,9 +82,10 @@ export async function GET() {
     const acctSolutionsConsultant: Record<string, string | null> = {};
     const acctHypercareDri: Record<string, string | null> = {};
     const acctProjectId: Record<string, string> = {};
+    const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare','Approved') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -97,6 +100,7 @@ export async function GET() {
       acctSolutionsConsultant[acctId] = r.Solutions_Consultant__r?.Name ?? null;
       acctHypercareDri[acctId] = r.Hypercare_DRI__r?.Name ?? null;
       acctProjectId[acctId] = r.Id;
+      acctProjectStage[acctId] = r.Stage__c ?? null;
     }
 
     // Onboarding status change dates from AccountHistory (field history tracking)
@@ -119,6 +123,24 @@ export async function GET() {
     const acctCsm: Record<string, string> = {};
     for (const [pid, csmId] of Object.entries(projCsm)) {
       acctCsm[projAcct[pid]] = csmId;
+    }
+
+    // Backfill CSM from ANY project (regardless of stage) for accounts still missing one.
+    // Ensures every active account shows its real SFDC CSM, not "Unassigned".
+    const missingCsmAcctIds = allAcctIds.filter(id => !acctCsm[id]);
+    if (missingCsmAcctIds.length > 0) {
+      for (let i = 0; i < missingCsmAcctIds.length; i += 200) {
+        const batch = missingCsmAcctIds.slice(i, i + 200);
+        const idsStr = batch.map(id => `'${id}'`).join(",");
+        const broadCsmRecs: any[] = await (conn as any)
+          .query(`SELECT Account__c, CSM__c, LastModifiedDate FROM Project__c WHERE Account__c IN (${idsStr}) AND CSM__c != null ORDER BY LastModifiedDate DESC`)
+          .then((r: any) => r.records ?? []);
+        for (const r of broadCsmRecs) {
+          if (!acctCsm[r.Account__c]) {
+            acctCsm[r.Account__c] = r.CSM__c;
+          }
+        }
+      }
     }
 
     // Bucket counts — project-based (each project maps to its account's bucket)
@@ -380,6 +402,7 @@ export async function GET() {
         hypercareDri: acctHypercareDri[r.Id] ?? null,
         accountStatus: r.Account_Status__c ?? null,
         executiveProgramStatus: r.Executive_Program_Status__c ?? null,
+        stage: acctProjectStage[r.Id] ?? null,
       })),
     });
   } catch (err) {

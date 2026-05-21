@@ -17,6 +17,7 @@ const VALID_STATUSES = new Set(["Not Started", "In Progress", "Completed"]);
 const VALID_TEMPERATURES = new Set(["Watch", "Healthy", "Critical"]);
 const VALID_PROJECT_HEALTH = new Set(["On Track", "At Risk", "Critical", "Blocked"]);
 const VALID_EXEC_STATUS = new Set(["On Track", "At Risk", "Needs Attention", "Churned"]);
+const VALID_STAGES = new Set(["Needs Review", "Onboard", "Hypercare", "Approved", "Completed"]);
 
 export async function POST(req: Request) {
   if (!isSalesforceConfigured()) {
@@ -59,7 +60,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid temperature value" }, { status: 400 });
       if (field === "Project_Health__c" && value && !VALID_PROJECT_HEALTH.has(value))
         return NextResponse.json({ error: "Invalid project health value" }, { status: 400 });
-      if (!["Customer_Temperature__c", "Project_Health__c"].includes(field))
+      if (field === "Stage__c" && value && !VALID_STAGES.has(value))
+        return NextResponse.json({ error: "Invalid stage value" }, { status: 400 });
+      if (!["Customer_Temperature__c", "Project_Health__c", "Stage__c"].includes(field))
         return NextResponse.json({ error: "Field not allowed" }, { status: 400 });
       await (conn as any).sobject("Project__c").update({ Id: projectId, [field]: value || null });
       return NextResponse.json({ ok: true });
