@@ -1062,7 +1062,7 @@ function AccountDetail({
     }
   }
 
-  type ProjectField = "Customer_Temperature__c" | "Project_Health__c" | "Service_Package__c" | "Project_Type__c" | "Solutions_Consultant__c" | "Hypercare_DRI__c";
+  type ProjectField = "Customer_Temperature__c" | "Project_Health__c" | "Service_Package__c" | "Project_Type__c" | "Solutions_Consultant__c" | "Hypercare_DRI__c" | "Customer_Planned_Go_Live_Date__c";
   const PROJECT_FIELD_LOCAL_KEY: Record<ProjectField, keyof ApiAccount> = {
     "Customer_Temperature__c": "customerTemperature",
     "Project_Health__c": "projectHealth",
@@ -1070,6 +1070,7 @@ function AccountDetail({
     "Project_Type__c": "projectType",
     "Solutions_Consultant__c": "solutionsConsultant",
     "Hypercare_DRI__c": "hypercareDri",
+    "Customer_Planned_Go_Live_Date__c": "goLiveDate",
   };
 
   async function handleProjectField(field: ProjectField, sfValue: string, displayValue?: string) {
@@ -1166,11 +1167,13 @@ function AccountDetail({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-text">Go-live target</div>
-            <div className="font-display text-base font-medium tabular text-midnight mt-0.5">
-              {a.goLiveDate
-                ? new Date(a.goLiveDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })
-                : "—"}
-            </div>
+            <input
+              type="date"
+              value={a.goLiveDate ? a.goLiveDate.substring(0, 10) : ""}
+              onChange={e => handleProjectField("Customer_Planned_Go_Live_Date__c", e.target.value)}
+              disabled={fieldSaving.has("Customer_Planned_Go_Live_Date__c") || !a.projectId}
+              className="font-display text-sm font-medium tabular text-midnight mt-0.5 border border-panel-border rounded-sm px-1 py-0.5 bg-white focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait w-full"
+            />
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-text">Days in bucket</div>
