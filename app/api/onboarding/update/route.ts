@@ -7,7 +7,7 @@ const BUCKET_TO_SF: Record<string, string> = {
   B1: "1 - Hand-Raised 2.0 Migration",
   B2: "2 - Deferred 2.0 Migration",
   B3: "3 - Pre-Kickoff Active",
-  B4: "4 -Post-Kickoff STUCK",
+  B4: "4 - Post-Kickoff STUCK",
   B5: "5 - Mid-Journey Working",
   B6: "6 - Near-Launch",
   B7: "7 - Launched",

@@ -1144,11 +1144,12 @@ function AccountDetail({
           <div className="flex-1">
             <div className="text-[10px] uppercase tracking-wider text-muted-text mb-1">Bucket</div>
             <select
-              value={a.bucket}
+              value={a.bucket === "pending" ? "" : a.bucket}
               onChange={e => handleBucketSelect(e.target.value)}
               disabled={savingBucket}
               className="w-full text-[12px] border border-panel-border rounded-sm px-2 py-1.5 bg-white text-dark-text focus:outline-none focus:border-protocol-blue disabled:opacity-50 disabled:cursor-wait"
             >
+              {a.bucket === "pending" && <option value="" disabled>— unrecognized SF value —</option>}
               {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
                 <option key={b} value={b}>{b} — {BUCKET_LABELS[b]}</option>
               ))}

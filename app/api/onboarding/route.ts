@@ -8,7 +8,7 @@ const BUCKET_LABELS: Record<string, string> = {
   "1 - Hand-Raised 2.0 Migration": "B1",
   "2 - Deferred 2.0 Migration": "B2",
   "3 - Pre-Kickoff Active": "B3",
-  "4 -Post-Kickoff STUCK": "B4",
+  "4 - Post-Kickoff STUCK": "B4",
   "5 - Mid-Journey Working": "B5",
   "6 - Near-Launch": "B6",
   "7 - Launched": "B7",
