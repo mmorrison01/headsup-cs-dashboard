@@ -125,6 +125,7 @@ const MONTH_TARGET = 147;
 export default function OnboardingLifecycleDashboard() {
   const [data, setData] = useState<ApiData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<string>("all");
   const [selectedStage, setSelectedStage] = useState<string>("all");
@@ -151,9 +152,10 @@ export default function OnboardingLifecycleDashboard() {
   const [selectedAcct, setSelectedAcct] = useState<ApiAccount | null>(null);
   const [localAccounts, setLocalAccounts] = useState<ApiAccount[]>([]);
 
-  async function fetchData() {
+  async function fetchData(manual = false) {
+    if (manual) setRefreshing(true);
     try {
-      const res = await fetch("/api/onboarding");
+      const res = await fetch("/api/onboarding", { cache: "no-store" });
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const json: ApiData = await res.json();
       setData(json);
@@ -170,6 +172,7 @@ export default function OnboardingLifecycleDashboard() {
       setError(String(e));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -320,8 +323,12 @@ export default function OnboardingLifecycleDashboard() {
         />
         <div className="text-[11px] text-muted-text mt-1 flex-shrink-0 text-right">
           <span>Updated {updatedLabel}</span>
-          <button onClick={fetchData} className="ml-3 text-protocol-blue hover:underline">
-            Refresh
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="ml-3 text-protocol-blue hover:underline disabled:opacity-50 disabled:cursor-wait"
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </div>

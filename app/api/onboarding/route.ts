@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSalesforceConnection, isSalesforceConfigured } from "@/lib/salesforce";
 
 export const runtime = "nodejs";
-export const revalidate = 300; // 5-minute edge cache
+export const revalidate = 0;
 
 const BUCKET_LABELS: Record<string, string> = {
   "1 - Hand-Raised 2.0 Migration": "B1",
