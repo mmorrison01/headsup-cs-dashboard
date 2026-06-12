@@ -134,7 +134,7 @@ export default function OnboardingLifecycleDashboard() {
   const [selectedStage, setSelectedStage] = useState<string>("all");
   const [selectedCsm, setSelectedCsm] = useState<string>("all");
   const [selectedSearch, setSelectedSearch] = useState<string>("");
-  const [taskFilter, setTaskFilter] = useState<"all" | "needs-rt" | "needs-tp">("all");
+  const [taskFilter, setTaskFilter] = useState<"all" | "both-done" | "one-away" | "needs-rt" | "needs-tp" | "neither-done">("all");
   const [hypercareOnly, setHypercareOnly] = useState<boolean>(false);
   const [selectedSc, setSelectedSc] = useState<string>("all");
   const [selectedCustomerHealth, setSelectedCustomerHealth] = useState<string>("all");
@@ -319,7 +319,13 @@ export default function OnboardingLifecycleDashboard() {
     const stageMatch = selectedStage === "all" || a.stage === selectedStage;
     const csmMatch = selectedCsm === "all" || a.csmName === selectedCsm;
     const searchMatch = !selectedSearch || a.accountName.toLowerCase().includes(selectedSearch.toLowerCase());
-    const taskMatch = taskFilter === "all" || (taskFilter === "needs-rt" && !a.rtDone && a.tpDone) || (taskFilter === "needs-tp" && a.rtDone && !a.tpDone);
+    const taskMatch =
+      taskFilter === "all" ||
+      (taskFilter === "both-done" && a.rtDone && a.tpDone) ||
+      (taskFilter === "one-away" && (a.rtDone ? 1 : 0) + (a.tpDone ? 1 : 0) === 1) ||
+      (taskFilter === "needs-rt" && !a.rtDone && a.tpDone) ||
+      (taskFilter === "needs-tp" && a.rtDone && !a.tpDone) ||
+      (taskFilter === "neither-done" && !a.rtDone && !a.tpDone);
     const hypercareMatch = !hypercareOnly || !!a.hypercareDri;
     const scMatch = selectedSc === "all" || a.solutionsConsultant === selectedSc;
     const customerHealthMatch = selectedCustomerHealth === "all" || a.customerTemperature === selectedCustomerHealth;
@@ -931,7 +937,7 @@ export default function OnboardingLifecycleDashboard() {
 
       {/* Executive Program Status filters */}
       {availableExecStatuses.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
           <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">Exec Program Status</span>
           <FilterChip label="All" count={0} active={selectedExecStatus === "all"} onClick={() => setSelectedExecStatus("all")} showCount={false} color="#475569" />
           {availableExecStatuses.map(s => (
@@ -946,6 +952,29 @@ export default function OnboardingLifecycleDashboard() {
           ))}
         </div>
       )}
+
+      {/* SLA Focus */}
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <span className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium w-32 flex-shrink-0">SLA Focus</span>
+        {([
+          { v: "all" as const, label: "All", color: "#475569", count: localAccounts.length, showCount: false },
+          { v: "both-done" as const, label: "✓ Both done", color: "#10B981", count: localAccounts.filter(a => a.rtDone && a.tpDone).length, showCount: true },
+          { v: "one-away" as const, label: "One away", color: "#F59E0B", count: localAccounts.filter(a => (a.rtDone ? 1 : 0) + (a.tpDone ? 1 : 0) === 1).length, showCount: true },
+          { v: "needs-rt" as const, label: "Needs RT", color: "#06B6D4", count: localAccounts.filter(a => !a.rtDone && a.tpDone).length, showCount: true },
+          { v: "needs-tp" as const, label: "Needs TP", color: "#2563EB", count: localAccounts.filter(a => a.rtDone && !a.tpDone).length, showCount: true },
+          { v: "neither-done" as const, label: "Neither done", color: "#EF4444", count: localAccounts.filter(a => !a.rtDone && !a.tpDone).length, showCount: true },
+        ]).map(({ v, label, color, count, showCount }) => (
+          <FilterChip
+            key={v}
+            label={label}
+            count={count}
+            active={taskFilter === v}
+            onClick={() => setTaskFilter(v)}
+            color={color}
+            showCount={showCount}
+          />
+        ))}
+      </div>
 
       {/* Search */}
       <div className="mb-4">
@@ -975,6 +1004,8 @@ export default function OnboardingLifecycleDashboard() {
                     <SortableTh align="right" sortKey="goLiveDate" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Go-Live</SortableTh>
                     <SortableTh align="right" sortKey="daysInBucket" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Days</SortableTh>
                     <SortableTh align="left" sortKey="customerTemperature" activeKey={sortKey} dir={sortDir} onToggle={toggleSort}>Temp</SortableTh>
+                    <th className="px-2 py-2.5 text-center font-medium text-[10px] uppercase tracking-[0.1em] text-muted-text">RT</th>
+                    <th className="px-2 py-2.5 text-center font-medium text-[10px] uppercase tracking-[0.1em] text-muted-text">TP</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1025,6 +1056,16 @@ export default function OnboardingLifecycleDashboard() {
                       </td>
                       <td className="text-left px-2 text-[11px]">
                         <TempBadge temp={a.customerTemperature} />
+                      </td>
+                      <td className="text-center px-1">
+                        <span className={`text-[11px] font-semibold ${a.rtDone ? "text-status-green" : "text-muted-text/40"}`}>
+                          {a.rtDone ? "✓" : "–"}
+                        </span>
+                      </td>
+                      <td className="text-center px-1">
+                        <span className={`text-[11px] font-semibold ${a.tpDone ? "text-status-green" : "text-muted-text/40"}`}>
+                          {a.tpDone ? "✓" : "–"}
+                        </span>
                       </td>
                     </tr>
                   ))}

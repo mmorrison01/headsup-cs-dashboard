@@ -77,7 +77,7 @@ export default function Home() {
                 active={view === "lifecycle"}
                 onClick={() => setView("lifecycle")}
                 label="Onboarding Lifecycle"
-                sub="Operation GoLive · May 2026"
+                sub="Operation GoLive · June 2026"
                 accent
               />
               <TabButton
