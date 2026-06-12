@@ -451,6 +451,63 @@ export default function OnboardingLifecycleDashboard() {
         </Panel>
       </div>
 
+      {/* CSM × Bucket grid */}
+      <div className="mb-6">
+        <Panel title="CSM × Bucket" subtitle="Live ownership across the active book" noPadding>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-subtle border-b border-panel-border">
+                <tr className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+                  <th className="text-left px-4 py-2.5 font-medium">CSM</th>
+                  {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
+                    <th key={b} className="text-center px-2 py-2.5 font-medium">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="font-mono text-[11px]">{b}</span>
+                        <span className="text-[9px] normal-case tracking-normal text-muted-text/70 font-normal">
+                          {BUCKET_SHORT[b].split(" ")[0]}
+                        </span>
+                      </div>
+                    </th>
+                  ))}
+                  <th className="text-right px-4 py-2.5 font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.csmByBucket.map(row => (
+                  <tr key={row.csm} className="border-b border-panel-border last:border-0">
+                    <td className="px-4 py-3 text-sm font-medium text-midnight">{row.csm}</td>
+                    {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => {
+                      const v = row[b];
+                      return (
+                        <td key={b} className="text-center px-2 py-3">
+                          <span className={`inline-flex items-center justify-center w-8 h-7 rounded-sm font-mono tabular text-sm ${
+                            v === 0 ? "text-muted-text/50" : v >= 30 ? "bg-protocol-blue/10 text-protocol-blue font-semibold" : "text-midnight"
+                          }`}>
+                            {v}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="text-right px-4 py-3 font-display tabular text-base font-medium text-midnight">{row.total}</td>
+                  </tr>
+                ))}
+                <tr className="bg-light-bg border-t-2 border-midnight">
+                  <td className="px-4 py-3 text-[11px] uppercase tracking-wider font-semibold text-midnight">Team total</td>
+                  {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
+                    <td key={b} className="text-center px-2 py-3 font-mono tabular text-sm font-semibold text-midnight">
+                      {data.csmByBucket.reduce((s, r) => s + (r[b] ?? 0), 0)}
+                    </td>
+                  ))}
+                  <td className="text-right px-4 py-3 font-display text-lg font-semibold tabular text-midnight">
+                    {data.totalActive}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      </div>
+
       {/* Standup metric */}
       <Panel
         title="The Standup Metric"
@@ -636,63 +693,6 @@ export default function OnboardingLifecycleDashboard() {
                 );
               })}
             </div>
-          </div>
-        </Panel>
-      </div>
-
-      {/* CSM × Bucket grid */}
-      <div className="mb-6">
-        <Panel title="CSM × Bucket" subtitle="Live ownership across the active book" noPadding>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-subtle border-b border-panel-border">
-                <tr className="text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
-                  <th className="text-left px-4 py-2.5 font-medium">CSM</th>
-                  {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
-                    <th key={b} className="text-center px-2 py-2.5 font-medium">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="font-mono text-[11px]">{b}</span>
-                        <span className="text-[9px] normal-case tracking-normal text-muted-text/70 font-normal">
-                          {BUCKET_SHORT[b].split(" ")[0]}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="text-right px-4 py-2.5 font-medium">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.csmByBucket.map(row => (
-                  <tr key={row.csm} className="border-b border-panel-border last:border-0">
-                    <td className="px-4 py-3 text-sm font-medium text-midnight">{row.csm}</td>
-                    {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => {
-                      const v = row[b];
-                      return (
-                        <td key={b} className="text-center px-2 py-3">
-                          <span className={`inline-flex items-center justify-center w-8 h-7 rounded-sm font-mono tabular text-sm ${
-                            v === 0 ? "text-muted-text/50" : v >= 30 ? "bg-protocol-blue/10 text-protocol-blue font-semibold" : "text-midnight"
-                          }`}>
-                            {v}
-                          </span>
-                        </td>
-                      );
-                    })}
-                    <td className="text-right px-4 py-3 font-display tabular text-base font-medium text-midnight">{row.total}</td>
-                  </tr>
-                ))}
-                <tr className="bg-light-bg border-t-2 border-midnight">
-                  <td className="px-4 py-3 text-[11px] uppercase tracking-wider font-semibold text-midnight">Team total</td>
-                  {(["B1", "B2", "B3", "B4", "B5", "B6", "B7"] as Bucket[]).map(b => (
-                    <td key={b} className="text-center px-2 py-3 font-mono tabular text-sm font-semibold text-midnight">
-                      {data.csmByBucket.reduce((s, r) => s + (r[b] ?? 0), 0)}
-                    </td>
-                  ))}
-                  <td className="text-right px-4 py-3 font-display text-lg font-semibold tabular text-midnight">
-                    {data.totalActive}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </Panel>
       </div>
