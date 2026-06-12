@@ -35,11 +35,11 @@ const BUCKET_SHORT: Record<string, string> = {
   B7: "Launched",
 };
 
-const MAY_WEEKS = [
-  { label: "W1", dates: "May 5–9", focus: "Launch momentum — early movers", target: { lo: 25, hi: 30 } },
-  { label: "W2", dates: "May 12–16", focus: "B4/B5 unblock — biggest batch", target: { lo: 38, hi: 43 } },
-  { label: "W3", dates: "May 19–23", focus: "Near-launch push — B6 to B7", target: { lo: 43, hi: 49 } },
-  { label: "W4", dates: "May 26–30", focus: "Close the month — no accounts left behind", target: { lo: 30, hi: 35 } },
+const JUNE_WEEKS = [
+  { label: "W1", dates: "Jun 2–6", focus: "Restart momentum — clear RT+TP backlog", target: { lo: 30, hi: 35 } },
+  { label: "W2", dates: "Jun 9–13", focus: "B4/B5 push — break the logjam", target: { lo: 42, hi: 48 } },
+  { label: "W3", dates: "Jun 16–20", focus: "Near-launch sprint — B6 to done", target: { lo: 48, hi: 55 } },
+  { label: "W4", dates: "Jun 23–27", focus: "Close the gap — no account left behind", target: { lo: 32, hi: 38 } },
 ];
 
 interface ApiAccount {
@@ -83,7 +83,7 @@ interface StandupRow {
   thisWeek: number;
   lastWeek: number;
   weekTarget: string;
-  totalMay: number;
+  totalMonth: number;
   monthTarget: number;
   fromB4: number;
   fromB5: number;
@@ -98,29 +98,32 @@ interface ApiData {
   totalActive: number;
   csmByBucket: CsmRow[];
   standupMetrics: StandupRow[];
+  eligibleBase: number;
+  csmEligibleCounts: Record<string, number>;
   bothDoneMetric: {
-    mayTarget: number;
+    slaTarget: number;
     baseline: number;
     newlyBothDone: number;
     teamRtOnly: number;
     teamTpOnly: number;
-    byCsm: Array<{ csm: string; newlyBothDone: number; both: number; rtOnly: number; tpOnly: number; target: number }>;
+    byCsm: Array<{ csm: string; newlyBothDone: number; both: number; rtOnly: number; tpOnly: number; eligible: number; target: number }>;
   };
   weeklyCompletions: {
     thisWeek: Record<string, number>;
     lastWeek: Record<string, number>;
-    mayTotals: Record<string, number>;
+    monthTotals: Record<string, number>;
   };
   secondaryMetric: {
     bothDoneTotal: number;
     activeTotal: number;
+    eligibleTotal: number;
     pct: number;
     goal: number;
   };
   accounts: ApiAccount[];
 }
 
-const MONTH_TARGET = 147;
+// SLA target is dynamic (70% of eligible base), computed from live data in slaData memo
 
 export default function OnboardingLifecycleDashboard() {
   const [data, setData] = useState<ApiData | null>(null);
@@ -233,6 +236,58 @@ export default function OnboardingLifecycleDashboard() {
     return localAccounts.filter(a => !!a.hypercareDri).length;
   }, [localAccounts]);
 
+  const slaData = useMemo(() => {
+    const ELIGIBLE = new Set(["B3", "B4", "B5", "B6", "B7"]);
+    const eligible = localAccounts.filter(a => ELIGIBLE.has(a.bucket));
+    const eligibleCount = eligible.length;
+    const bothDone = eligible.filter(a => a.rtDone && a.tpDone).length;
+    const slaTarget = Math.round(eligibleCount * 0.70);
+    const gap = Math.max(0, slaTarget - bothDone);
+    const eligiblePct = eligibleCount > 0 ? Math.round(100 * bothDone / eligibleCount) : 0;
+
+    // Per-bucket breakdown
+    const bucketKeys = ["B3", "B4", "B5", "B6", "B7"];
+    const byBucket = bucketKeys.map(bk => {
+      const accts = localAccounts.filter(a => a.bucket === bk);
+      const bd = accts.filter(a => a.rtDone && a.tpDone).length;
+      const oa = accts.filter(a => (a.rtDone ? 1 : 0) + (a.tpDone ? 1 : 0) === 1).length;
+      return {
+        bucket: bk,
+        total: accts.length,
+        bothDone: bd,
+        oneAway: oa,
+        pct: accts.length > 0 ? Math.round(100 * bd / accts.length) : 0,
+      };
+    });
+
+    // Per-CSM breakdown
+    const csms = ["Elaine Peters", "Jillian Ramos", "Varsha Yaddala"];
+    const byCsm = csms.map(csm => {
+      const accts = eligible.filter(a => a.csmName === csm);
+      const bd = accts.filter(a => a.rtDone && a.tpDone).length;
+      const target = Math.round(accts.length * 0.70);
+      return {
+        csm,
+        eligible: accts.length,
+        bothDone: bd,
+        pct: accts.length > 0 ? Math.round(100 * bd / accts.length) : 0,
+        gap: Math.max(0, target - bd),
+        target,
+      };
+    });
+
+    // One-away accounts (exactly one of RT/TP done) in B3-B6, sorted B6 first
+    const oneAway = localAccounts
+      .filter(a => ELIGIBLE.has(a.bucket) && a.bucket !== "B7")
+      .filter(a => (a.rtDone ? 1 : 0) + (a.tpDone ? 1 : 0) === 1)
+      .sort((a, b) => {
+        const order = ["B6", "B5", "B4", "B3"];
+        return order.indexOf(a.bucket) - order.indexOf(b.bucket);
+      });
+
+    return { eligibleCount, bothDone, slaTarget, gap, eligiblePct, byBucket, byCsm, oneAway };
+  }, [localAccounts]);
+
   if (loading) {
     return (
       <div className="tab-fade-in flex items-center justify-center py-32">
@@ -256,7 +311,7 @@ export default function OnboardingLifecycleDashboard() {
 
   const totalNet = Object.values(data.weeklyCompletions.thisWeek).reduce((s, v) => s + v, 0);
   const totalNetLast = Object.values(data.weeklyCompletions.lastWeek).reduce((s, v) => s + v, 0);
-  const totalMay = Object.values(data.weeklyCompletions.mayTotals).reduce((s, v) => s + v, 0);
+  const totalMonth = Object.values(data.weeklyCompletions.monthTotals).reduce((s, v) => s + v, 0);
   const currentWeekIndex = Math.max(0, data.currentWeekNum - 1);
 
   const filtered = localAccounts.filter(a => {
@@ -317,7 +372,7 @@ export default function OnboardingLifecycleDashboard() {
     <div className="tab-fade-in">
       <div className="flex items-start justify-between mb-6">
         <SectionHeader
-          kicker="Onboarding Lifecycle · Operation GoLive · May 2026"
+          kicker="Onboarding Lifecycle · Operation GoLive · June 2026"
           title="Active Onboarding — Live View"
           sub={`Active Projects across 7 buckets. Live Salesforce data, auto-refreshes every 5 minutes.`}
         />
@@ -347,22 +402,22 @@ export default function OnboardingLifecycleDashboard() {
           </div>
         </Panel>
 
-        <Panel>
-          <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-text mb-1.5">
-            May progress
+        <Panel className="!border-rose-300 !bg-rose-50">
+          <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-rose-500 mb-1.5">
+            Gap to 70% SLA
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="font-display text-4xl font-medium tabular text-midnight">{totalMay}</span>
-            <span className="text-sm text-muted-text">/ {MONTH_TARGET}</span>
+            <span className="font-display text-4xl font-medium tabular text-rose-600">{slaData.gap}</span>
+            <span className="text-sm text-rose-400">accounts</span>
           </div>
-          <div className="mt-2 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
+          <div className="mt-2 h-1.5 bg-rose-100 rounded-sm overflow-hidden">
             <div
-              className="h-full bg-protocol-blue rounded-sm"
-              style={{ width: `${Math.min(100, (totalMay / MONTH_TARGET) * 100)}%` }}
+              className="h-full bg-rose-400 rounded-sm"
+              style={{ width: `${Math.min(100, (slaData.bothDone / slaData.slaTarget) * 100)}%` }}
             />
           </div>
-          <div className="text-[11px] text-muted-text mt-1.5">
-            {Math.round((totalMay / MONTH_TARGET) * 100)}% of month target
+          <div className="text-[11px] text-rose-500 mt-1.5">
+            {slaData.bothDone}/{slaData.slaTarget} · {slaData.eligiblePct}% eligible ({slaData.eligibleCount} B3–B7)
           </div>
         </Panel>
 
@@ -378,20 +433,20 @@ export default function OnboardingLifecycleDashboard() {
 
         <Panel>
           <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-text mb-1.5">
-            Both done rate (14d)
+            SLA compliance (eligible)
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="font-display text-4xl font-medium tabular text-midnight">{data.secondaryMetric.pct}%</span>
-            <span className="text-sm text-muted-text">/ {data.secondaryMetric.goal}%</span>
+            <span className="font-display text-4xl font-medium tabular text-midnight">{slaData.eligiblePct}%</span>
+            <span className="text-sm text-muted-text">/ 70% target</span>
           </div>
           <div className="mt-2 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
             <div
               className="h-full bg-protocol-blue rounded-sm"
-              style={{ width: `${Math.min(100, (data.secondaryMetric.pct / data.secondaryMetric.goal) * 100)}%` }}
+              style={{ width: `${Math.min(100, (slaData.eligiblePct / 70) * 100)}%` }}
             />
           </div>
           <div className="text-[11px] text-muted-text mt-1.5">
-            {data.secondaryMetric.bothDoneTotal}/{data.secondaryMetric.activeTotal} active accounts both done
+            {slaData.bothDone}/{slaData.eligibleCount} B3–B7 · B1/B2 excluded
           </div>
         </Panel>
       </div>
@@ -408,8 +463,8 @@ export default function OnboardingLifecycleDashboard() {
             <div className="col-span-2 text-right">This week</div>
             <div className="col-span-2 text-right">Last week</div>
             <div className="col-span-2 text-right">Target</div>
-            <div className="col-span-2 text-right">May total</div>
-            <div className="col-span-1 text-right">Mo. target</div>
+            <div className="col-span-2 text-right">Jun total</div>
+            <div className="col-span-1 text-right">SLA gap</div>
           </div>
 
           {data.standupMetrics.map(m => {
@@ -427,8 +482,8 @@ export default function OnboardingLifecycleDashboard() {
                 <div className={`col-span-2 text-right font-display text-2xl font-medium tabular ${color}`}>{m.thisWeek}</div>
                 <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{m.lastWeek}</div>
                 <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{m.weekTarget}</div>
-                <div className="col-span-2 text-right font-mono tabular text-sm text-midnight">{m.totalMay}</div>
-                <div className="col-span-1 text-right font-mono tabular text-sm text-muted-text">{m.monthTarget}</div>
+                <div className="col-span-2 text-right font-mono tabular text-sm text-midnight">{m.totalMonth}</div>
+                <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-medium">{m.monthTarget}</div>
               </div>
             );
           })}
@@ -438,18 +493,18 @@ export default function OnboardingLifecycleDashboard() {
             <div className="col-span-2 text-right font-display text-2xl font-medium tabular text-midnight">{totalNet}</div>
             <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{totalNetLast}</div>
             <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{data.weekTargets[data.currentWeekNum] ?? "--"}</div>
-            <div className="col-span-2 text-right font-mono tabular text-sm text-midnight font-semibold">{totalMay}</div>
-            <div className="col-span-1 text-right font-mono tabular text-sm text-muted-text">{MONTH_TARGET}</div>
+            <div className="col-span-2 text-right font-mono tabular text-sm text-midnight font-semibold">{totalMonth}</div>
+            <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-semibold">{slaData.gap}</div>
           </div>
         </div>
 
-        {/* May calendar */}
+        {/* June calendar */}
         <div className="mt-5 pt-4 border-t border-panel-border">
           <div className="text-[10px] uppercase tracking-[0.12em] text-muted-text font-medium mb-2.5">
-            May Execution Calendar
+            June Execution Calendar
           </div>
           <div className="grid grid-cols-4 gap-2">
-            {MAY_WEEKS.map((w, i) => (
+            {JUNE_WEEKS.map((w, i) => (
               <div
                 key={w.label}
                 className={`p-3 rounded-sm border ${
@@ -480,7 +535,7 @@ export default function OnboardingLifecycleDashboard() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Panel
           title="Bucket Distribution"
-          subtitle="Current vs. May 1 baseline"
+          subtitle="Current vs. June 1 baseline"
           className="col-span-2"
         >
           <div className="space-y-2.5">
@@ -518,23 +573,23 @@ export default function OnboardingLifecycleDashboard() {
             })}
           </div>
           <div className="mt-4 pt-3 border-t border-panel-border text-[11px] text-muted-text">
-            <span className="font-medium text-midnight">bl</span> = May 1 baseline. Movement out of B4/B5 into B6/B7 is the operation&apos;s primary signal.
+            <span className="font-medium text-midnight">bl</span> = June 1 baseline. Movement out of B4/B5 into B6/B7 is the operation&apos;s primary signal.
           </div>
         </Panel>
 
-        <Panel title="Both Done" subtitle={`Goal: ${data.bothDoneMetric.mayTarget} total (70% of ${data.secondaryMetric.activeTotal} active) by May 30`}>
+        <Panel title="Both Done" subtitle={`Goal: ${data.bothDoneMetric.slaTarget} (70% of ${data.secondaryMetric.eligibleTotal} eligible B3–B7) by June 30`}>
           <div className="space-y-4">
-            {/* Team cumulative progress toward 255 */}
+            {/* Team cumulative progress toward SLA target */}
             <div>
               <div className="flex items-baseline justify-between text-[11px] mb-1">
                 <span className="font-semibold text-midnight">
                   <span className="text-[18px] font-bold">{data.bothDoneMetric.baseline}</span>
-                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.mayTarget} · +{data.bothDoneMetric.newlyBothDone} in May</span>
+                  <span className="text-muted-text ml-1">/ {data.bothDoneMetric.slaTarget} · +{data.bothDoneMetric.newlyBothDone} in June</span>
                 </span>
-                <span className="text-muted-text">{Math.round((data.bothDoneMetric.baseline / data.bothDoneMetric.mayTarget) * 100)}%</span>
+                <span className="text-muted-text">{Math.round((data.bothDoneMetric.baseline / data.bothDoneMetric.slaTarget) * 100)}%</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-sm overflow-hidden">
-                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.baseline / data.bothDoneMetric.mayTarget) * 100)}%` }} />
+                <div className="h-full bg-protocol-blue rounded-sm transition-all" style={{ width: `${Math.min(100, (data.bothDoneMetric.baseline / data.bothDoneMetric.slaTarget) * 100)}%` }} />
               </div>
             </div>
             {/* Quick wins — clickable to filter the accounts table below */}
@@ -555,19 +610,27 @@ export default function OnboardingLifecycleDashboard() {
             {/* Per-CSM rows */}
             <div className="space-y-2.5">
               {data.bothDoneMetric.byCsm.map(row => {
-                const pct = Math.min(100, (row.both / Math.max(1, row.target)) * 100);
+                const csmPct = row.eligible > 0 ? Math.round(100 * row.both / row.eligible) : 0;
+                const barPct = Math.min(100, (row.both / Math.max(1, row.target)) * 100);
+                const atSla = csmPct >= 70;
                 return (
                   <div key={row.csm}>
                     <div className="flex items-baseline justify-between text-[10px] mb-0.5">
                       <span className="font-medium text-midnight">{row.csm.split(" ")[0]}</span>
-                      <span className="text-muted-text font-mono tabular">
-                        {row.both}/{row.target}
-                        {row.rtOnly > 0 && <span className="ml-1.5 text-amber-600">{row.rtOnly} need RT</span>}
-                        {row.tpOnly > 0 && <span className="ml-1.5 text-blue-600">{row.tpOnly} need TP</span>}
+                      <span className="text-muted-text font-mono tabular flex items-center gap-2">
+                        <span className={`font-semibold ${atSla ? "text-status-green" : "text-rose-500"}`}>
+                          {csmPct}%
+                        </span>
+                        <span>{row.both}/{row.target}</span>
+                        {row.rtOnly > 0 && <span className="text-amber-600">{row.rtOnly} RT</span>}
+                        {row.tpOnly > 0 && <span className="text-blue-600">{row.tpOnly} TP</span>}
                       </span>
                     </div>
                     <div className="h-1.5 bg-slate-100 rounded-sm overflow-hidden">
-                      <div className="h-full bg-protocol-blue/70 rounded-sm" style={{ width: `${pct}%` }} />
+                      <div
+                        className={`h-full rounded-sm ${atSla ? "bg-status-green/70" : "bg-protocol-blue/70"}`}
+                        style={{ width: `${barPct}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -630,6 +693,98 @@ export default function OnboardingLifecycleDashboard() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </Panel>
+      </div>
+
+      {/* SLA by Bucket */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <Panel title="SLA by Bucket" subtitle="Both-done rate per bucket · B2 excluded from SLA">
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 pb-1.5 border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+              <div className="col-span-3">Bucket</div>
+              <div className="col-span-2 text-right">Total</div>
+              <div className="col-span-2 text-right">Done</div>
+              <div className="col-span-2 text-right">1-away</div>
+              <div className="col-span-3 text-right">Rate</div>
+            </div>
+            {slaData.byBucket.map(row => {
+              const atSla = row.pct >= 70;
+              return (
+                <div key={row.bucket} className="grid grid-cols-12 gap-2 items-center py-1.5 border-b border-panel-border last:border-0">
+                  <div className="col-span-3 flex items-center gap-1.5">
+                    <span
+                      className="w-2 h-2 rounded-sm flex-shrink-0"
+                      style={{ background: BUCKET_COLORS[row.bucket] }}
+                    />
+                    <span className="text-[11px] font-medium text-midnight">{row.bucket}</span>
+                  </div>
+                  <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{row.total}</div>
+                  <div className="col-span-2 text-right font-mono tabular text-sm text-midnight">{row.bothDone}</div>
+                  <div className="col-span-2 text-right font-mono tabular text-sm text-amber-600">{row.oneAway}</div>
+                  <div className="col-span-3 text-right">
+                    <span className={`text-sm font-semibold font-mono tabular ${atSla ? "text-status-green" : "text-rose-500"}`}>
+                      {row.pct}%
+                    </span>
+                    {!atSla && row.total > 0 && (
+                      <span className="text-[10px] text-muted-text ml-1">
+                        gap {Math.max(0, Math.round(row.total * 0.70) - row.bothDone)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="grid grid-cols-12 gap-2 pt-2 border-t-2 border-midnight items-center">
+              <div className="col-span-3 text-[11px] uppercase tracking-wider font-semibold text-midnight">Eligible</div>
+              <div className="col-span-2 text-right font-mono tabular text-sm font-semibold text-midnight">{slaData.eligibleCount}</div>
+              <div className="col-span-2 text-right font-mono tabular text-sm font-semibold text-midnight">{slaData.bothDone}</div>
+              <div className="col-span-2 text-right font-mono tabular text-sm font-semibold text-amber-600">
+                {slaData.byBucket.reduce((s, r) => s + r.oneAway, 0)}
+              </div>
+              <div className="col-span-3 text-right">
+                <span className={`text-sm font-bold font-mono tabular ${slaData.eligiblePct >= 70 ? "text-status-green" : "text-rose-500"}`}>
+                  {slaData.eligiblePct}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        {/* Single Task Away */}
+        <Panel title="Single Task Away" subtitle="Exactly one of RT or TP done · highest-ROI completions · B6 first">
+          {slaData.oneAway.length === 0 ? (
+            <div className="text-sm text-muted-text py-4 text-center">No one-away accounts — nice!</div>
+          ) : (
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              {slaData.oneAway.map(a => (
+                <div key={a.id} className="flex items-center justify-between py-1.5 border-b border-panel-border last:border-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-2 h-2 rounded-sm flex-shrink-0"
+                      style={{ background: BUCKET_COLORS[a.bucket] }}
+                    />
+                    <span className="text-[12px] text-midnight truncate">{a.accountName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <span className="text-[10px] font-mono text-muted-text">{a.csmName?.split(" ")[0]}</span>
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${a.rtDone ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-slate-50 text-muted-text border border-panel-border"}`}
+                    >
+                      RT {a.rtDone ? "✓" : "–"}
+                    </span>
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${a.tpDone ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-slate-50 text-muted-text border border-panel-border"}`}
+                    >
+                      TP {a.tpDone ? "✓" : "–"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
+            {slaData.oneAway.length} accounts · complete one task = +1 to SLA count
           </div>
         </Panel>
       </div>

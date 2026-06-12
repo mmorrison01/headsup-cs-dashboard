@@ -22,11 +22,12 @@ const CSM_IDS: Record<string, string> = {
 
 const CSMS = ["Elaine Peters", "Jillian Ramos", "Varsha Yaddala"];
 
+// June 1 bucket counts — update once confirmed from SF snapshot
 const BASELINE: Record<string, number> = {
-  B1: 22, B2: 67, B3: 55, B4: 49, B5: 103, B6: 22, B7: 38, total: 361,
+  B1: 0, B2: 0, B3: 0, B4: 0, B5: 0, B6: 0, B7: 0, total: 0,
 };
 
-const WEEK_TARGETS: Record<number, string> = { 1: "25-30", 2: "38-43", 3: "43-49", 4: "30-35" };
+const WEEK_TARGETS: Record<number, string> = { 1: "30-35", 2: "42-48", 3: "48-55", 4: "32-38" };
 
 function getMondayISO(offset = 0): string {
   const d = new Date();
@@ -37,10 +38,10 @@ function getMondayISO(offset = 0): string {
   return monday.toISOString();
 }
 
-function getMayWeekNumber(): number {
+function getJuneWeekNumber(): number {
   const now = new Date();
-  const mayStart = new Date(now.getFullYear(), 4, 4); // May 4
-  const diffMs = now.getTime() - mayStart.getTime();
+  const sprintStart = new Date(now.getFullYear(), 5, 2); // June 2
+  const diffMs = now.getTime() - sprintStart.getTime();
   const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
   return Math.min(Math.max(diffWeeks + 1, 1), 4);
 }
@@ -203,10 +204,20 @@ export async function GET() {
       if (projTpDone.has(pid)) acctTpDone.add(acctId);
     }
 
+    // Eligible base per CSM: B3-B7 accounts (SLA denominator, excludes B1/B2)
+    const ELIGIBLE_BUCKETS = new Set(["B3", "B4", "B5", "B6", "B7"]);
+    const csmEligibleCounts: Record<string, number> = {};
+    for (const csm of CSMS) csmEligibleCounts[csm] = 0;
+    for (const [pid, csmId] of Object.entries(projCsmEx)) {
+      const csm = CSM_IDS[csmId];
+      if (!csm || !CSMS.includes(csm)) continue;
+      const bucket = acctBucket[projAcct[pid]] ?? "pending";
+      if (ELIGIBLE_BUCKETS.has(bucket)) csmEligibleCounts[csm]++;
+    }
+    const eligibleBase = CSMS.reduce((s, c) => s + (csmEligibleCounts[c] ?? 0), 0);
+
     // Both Done metric — projects with both RT and TP completed
-    // Total both-done targets (70% of 363 active = 255) and incremental monthly targets (255-108 baseline = 147)
-    const CSM_TARGETS: Record<string, number> = { "Elaine Peters": 123, "Jillian Ramos": 68, "Varsha Yaddala": 64 };
-    const CSM_MTD_TARGETS: Record<string, number> = { "Elaine Peters": 71, "Jillian Ramos": 39, "Varsha Yaddala": 37 };
+    // Targets are dynamic: 70% of each CSM's eligible (B3-B7) account count
     const bothDoneByCSM: Record<string, number> = {};
     const rtOnlyByCSM: Record<string, number> = {};
     const tpOnlyByCSM: Record<string, number> = {};
@@ -221,8 +232,8 @@ export async function GET() {
       else if (hasTp) tpOnlyByCSM[csm] = (tpOnlyByCSM[csm] ?? 0) + 1;
     }
 
-    // RT and TP month-to-date completions (since May 4)
-    const monthStart = `${new Date().getFullYear()}-05-04T00:00:00Z`;
+    // RT and TP month-to-date completions (since June 2)
+    const monthStart = `${new Date().getFullYear()}-06-02T00:00:00Z`;
     const rtMtdRecs: any[] = await (conn as any)
       .query(`SELECT WhatId FROM Task WHERE Subject = 'Onboarding - Review Training and Documentation' AND Status = 'Completed' AND CompletedDateTime >= ${monthStart}`)
       .then((r: any) => r.records ?? []);
@@ -298,20 +309,20 @@ export async function GET() {
 
     const bothDoneTotal = CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0);
 
-    // May totals (since May 1)
-    const mayStart = `${new Date().getFullYear()}-05-01T00:00:00Z`;
-    const mayRecs: any[] = await (conn as any)
-      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CompletedDateTime >= ${mayStart}`)
+    // Month totals (since June 1)
+    const juneStart = `${new Date().getFullYear()}-06-01T00:00:00Z`;
+    const juneRecs: any[] = await (conn as any)
+      .query(`SELECT WhatId FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CompletedDateTime >= ${juneStart}`)
       .then((r: any) => r.records ?? []);
-    const mayTotals: Record<string, number> = {};
-    const seenMay = new Set<string>();
-    for (const r of mayRecs as any[]) {
+    const monthTotals: Record<string, number> = {};
+    const seenJune = new Set<string>();
+    for (const r of juneRecs as any[]) {
       const pid = r.WhatId;
-      if (!projCsmEx[pid] || seenMay.has(pid)) continue;
-      seenMay.add(pid);
+      if (!projCsmEx[pid] || seenJune.has(pid)) continue;
+      seenJune.add(pid);
       const csm = CSM_IDS[projCsmEx[pid]];
       if (!csm || !CSMS.includes(csm)) continue;
-      mayTotals[csm] = (mayTotals[csm] ?? 0) + 1;
+      monthTotals[csm] = (monthTotals[csm] ?? 0) + 1;
     }
 
     // All active accounts for the workbench
@@ -319,12 +330,12 @@ export async function GET() {
       .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Account_Status__c, Executive_Program_Status__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
       .then((r: any) => r.records ?? []);
 
-    const currentWeekNum = getMayWeekNumber();
+    const currentWeekNum = getJuneWeekNumber();
     const totalActive = bucketCounts.B1 + bucketCounts.B2 + bucketCounts.B3 + bucketCounts.B4 + bucketCounts.B5 + bucketCounts.B6 + bucketCounts.B7;
 
-    const bothDonePct = totalActive > 0 ? Math.round(100 * bothDoneTotal / totalActive) : 0;
+    const bothDonePct = eligibleBase > 0 ? Math.round(100 * bothDoneTotal / eligibleBase) : 0;
 
-    const teamMonthTotal = Object.values(CSM_MTD_TARGETS).reduce((a, b) => a + b, 0);
+    // Dynamic weekly targets — each CSM's share proportional to their eligible book
     const rawWt = WEEK_TARGETS[currentWeekNum] ?? "0-0";
     const [wtLo, wtHi] = rawWt.split("-").map(Number);
 
@@ -340,43 +351,53 @@ export async function GET() {
         ...csmBucketCounts[csm],
         total: Object.values(csmBucketCounts[csm]).reduce((a, b) => a + b, 0),
       })),
+      eligibleBase,
+      csmEligibleCounts,
       standupMetrics: CSMS.map(csm => {
-        const csmMtd = CSM_MTD_TARGETS[csm] ?? 0;
-        const share = teamMonthTotal > 0 ? csmMtd / teamMonthTotal : 0;
+        // Per-CSM weekly target: proportional share of team weekly target by eligible book size
+        const share = eligibleBase > 0 ? (csmEligibleCounts[csm] ?? 0) / eligibleBase : 0;
         const csmWtLo = Math.round(wtLo * share);
         const csmWtHi = Math.round(wtHi * share);
+        const csmBothDone = bothDoneByCSM[csm] ?? 0;
+        const csmEligible = csmEligibleCounts[csm] ?? 0;
+        const csmSlaTarget = Math.round(csmEligible * 0.70);
         return {
           csm,
           thisWeek: weekNew[csm] ?? 0,
           lastWeek: lastWeekNew[csm] ?? 0,
           weekTarget: `${csmWtLo}-${csmWtHi}`,
-          totalMay: mayTotals[csm] ?? 0,
-          monthTarget: CSM_MTD_TARGETS[csm] ?? 0,
+          totalMonth: monthTotals[csm] ?? 0,
+          monthTarget: Math.max(0, csmSlaTarget - csmBothDone),
           fromB4: 0,
           fromB5: 0,
         };
       }),
       bothDoneMetric: {
-        mayTarget: Math.round(totalActive * 0.70),
+        slaTarget: Math.round(eligibleBase * 0.70),
         baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
         newlyBothDone: CSMS.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
         teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
         teamTpOnly: CSMS.reduce((s, c) => s + (tpOnlyByCSM[c] ?? 0), 0),
-        byCsm: CSMS.map(csm => ({
-          csm,
-          newlyBothDone: newlyBothDoneByCSM[csm] ?? 0,
-          both: bothDoneByCSM[csm] ?? 0,
-          rtOnly: rtOnlyByCSM[csm] ?? 0,
-          tpOnly: tpOnlyByCSM[csm] ?? 0,
-          target: CSM_TARGETS[csm] ?? 0,
-        })),
+        byCsm: CSMS.map(csm => {
+          const eligible = csmEligibleCounts[csm] ?? 0;
+          return {
+            csm,
+            newlyBothDone: newlyBothDoneByCSM[csm] ?? 0,
+            both: bothDoneByCSM[csm] ?? 0,
+            rtOnly: rtOnlyByCSM[csm] ?? 0,
+            tpOnly: tpOnlyByCSM[csm] ?? 0,
+            eligible,
+            target: Math.round(eligible * 0.70),
+          };
+        }),
       },
       rtMetrics: { done: rtDone, total: rtTotal },
       tpMetrics: { done: tpDone, total: tpTotal },
-      weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, mayTotals },
+      weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, monthTotals },
       secondaryMetric: {
         bothDoneTotal,
         activeTotal: totalActive,
+        eligibleTotal: eligibleBase,
         pct: bothDonePct,
         goal: 70,
       },
