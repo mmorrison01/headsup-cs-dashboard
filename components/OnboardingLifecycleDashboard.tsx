@@ -35,12 +35,6 @@ const BUCKET_SHORT: Record<string, string> = {
   B7: "Launched",
 };
 
-const JUNE_WEEKS = [
-  { label: "W1", dates: "Jun 2–6", focus: "Restart momentum — clear RT+TP backlog", target: { lo: 30, hi: 35 } },
-  { label: "W2", dates: "Jun 9–13", focus: "B4/B5 push — break the logjam", target: { lo: 42, hi: 48 } },
-  { label: "W3", dates: "Jun 16–20", focus: "Near-launch sprint — B6 to done", target: { lo: 48, hi: 55 } },
-  { label: "W4", dates: "Jun 23–27", focus: "Close the gap — no account left behind", target: { lo: 32, hi: 38 } },
-];
 
 interface ApiAccount {
   id: string;
@@ -312,7 +306,6 @@ export default function OnboardingLifecycleDashboard() {
   const totalNet = Object.values(data.weeklyCompletions.thisWeek).reduce((s, v) => s + v, 0);
   const totalNetLast = Object.values(data.weeklyCompletions.lastWeek).reduce((s, v) => s + v, 0);
   const totalMonth = Object.values(data.weeklyCompletions.monthTotals).reduce((s, v) => s + v, 0);
-  const currentWeekIndex = Math.max(0, data.currentWeekNum - 1);
 
   const filtered = localAccounts.filter(a => {
     const bucketMatch = selectedBucket === "all" || a.bucket === selectedBucket;
@@ -530,68 +523,42 @@ export default function OnboardingLifecycleDashboard() {
             <div className="col-span-1 text-right">SLA gap</div>
           </div>
 
-          {data.standupMetrics.map(m => {
-            const targetLo = parseInt((m.weekTarget ?? "0").split("-")[0]) || 0;
-            const onTarget = m.thisWeek >= targetLo;
-            const close = m.thisWeek >= targetLo - 2;
-            const color = onTarget ? "text-status-green" : close ? "text-status-yellow" : "text-status-red";
-            const dot = onTarget ? "bg-status-green" : close ? "bg-status-yellow" : "bg-status-red";
-            return (
-              <div key={m.csm} className="grid grid-cols-12 gap-3 py-3 items-center border-b border-panel-border last:border-0">
-                <div className="col-span-3 flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full ${dot}`} />
-                  <span className="text-sm font-medium text-midnight">{m.csm}</span>
-                </div>
-                <div className={`col-span-2 text-right font-display text-2xl font-medium tabular ${color}`}>{m.thisWeek}</div>
-                <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{m.lastWeek}</div>
-                <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{m.weekTarget}</div>
-                <div className="col-span-2 text-right font-mono tabular text-sm text-midnight">{m.totalMonth}</div>
-                <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-medium">{m.monthTarget}</div>
-              </div>
+          {(() => {
+            const csmTargetMap = Object.fromEntries(
+              data.bothDoneMetric.byCsm.map(c => [c.csm, c.target])
             );
-          })}
+            return data.standupMetrics.map(m => {
+              const targetLo = parseInt((m.weekTarget ?? "0").split("-")[0]) || 0;
+              const onTarget = m.thisWeek >= targetLo;
+              const close = m.thisWeek >= targetLo - 2;
+              const color = onTarget ? "text-status-green" : close ? "text-status-yellow" : "text-status-red";
+              const dot = onTarget ? "bg-status-green" : close ? "bg-status-yellow" : "bg-status-red";
+              return (
+                <div key={m.csm} className="grid grid-cols-12 gap-3 py-3 items-center border-b border-panel-border last:border-0">
+                  <div className="col-span-3 flex items-center gap-2.5">
+                    <span className={`w-2 h-2 rounded-full ${dot}`} />
+                    <span className="text-sm font-medium text-midnight">{m.csm}</span>
+                  </div>
+                  <div className={`col-span-2 text-right font-display text-2xl font-medium tabular ${color}`}>{m.thisWeek}</div>
+                  <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{m.lastWeek}</div>
+                  <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{csmTargetMap[m.csm] ?? "--"}</div>
+                  <div className="col-span-2 text-right font-mono tabular text-sm text-midnight">{m.totalMonth}</div>
+                  <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-medium">{m.monthTarget}</div>
+                </div>
+              );
+            });
+          })()}
 
           <div className="grid grid-cols-12 gap-3 pt-3 mt-2 border-t-2 border-midnight items-center">
             <div className="col-span-3 text-[11px] uppercase tracking-wider font-semibold text-midnight">Team total</div>
             <div className="col-span-2 text-right font-display text-2xl font-medium tabular text-midnight">{totalNet}</div>
             <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{totalNetLast}</div>
-            <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{data.weekTargets[data.currentWeekNum] ?? "--"}</div>
+            <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{data.bothDoneMetric.slaTarget}</div>
             <div className="col-span-2 text-right font-mono tabular text-sm text-midnight font-semibold">{totalMonth}</div>
             <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-semibold">{slaData.gap}</div>
           </div>
         </div>
 
-        {/* June calendar */}
-        <div className="mt-5 pt-4 border-t border-panel-border">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-text font-medium mb-2.5">
-            June Execution Calendar
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {JUNE_WEEKS.map((w, i) => (
-              <div
-                key={w.label}
-                className={`p-3 rounded-sm border ${
-                  i === currentWeekIndex
-                    ? "border-protocol-blue bg-light-bg"
-                    : i < currentWeekIndex
-                    ? "border-panel-border bg-subtle opacity-70"
-                    : "border-panel-border bg-white"
-                }`}
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className={`text-[11px] font-semibold ${i === currentWeekIndex ? "text-protocol-blue" : "text-midnight"}`}>
-                    {w.label}
-                  </span>
-                  <span className="text-[10px] text-muted-text">{w.dates}</span>
-                </div>
-                <div className="text-[11px] text-dark-text mt-1 leading-snug">{w.focus}</div>
-                <div className="text-[10px] font-mono tabular text-muted-text mt-1.5">
-                  Target: {w.target.lo}–{w.target.hi} team
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </Panel>
 
       {/* Bucket distribution + Subtask velocity */}
