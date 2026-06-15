@@ -117,7 +117,7 @@ interface ApiData {
   accounts: ApiAccount[];
 }
 
-// SLA target is dynamic (70% of eligible base), computed from live data in slaData memo
+// SLA target is dynamic (90% of eligible base), computed from live data in slaData memo
 
 export default function OnboardingLifecycleDashboard() {
   const [data, setData] = useState<ApiData | null>(null);
@@ -235,7 +235,7 @@ export default function OnboardingLifecycleDashboard() {
     const eligible = localAccounts.filter(a => ELIGIBLE.has(a.bucket));
     const eligibleCount = eligible.length;
     const bothDone = eligible.filter(a => a.rtDone && a.tpDone).length;
-    const slaTarget = Math.round(eligibleCount * 0.70);
+    const slaTarget = Math.round(eligibleCount * 0.90);
     const gap = Math.max(0, slaTarget - bothDone);
     const eligiblePct = eligibleCount > 0 ? Math.round(100 * bothDone / eligibleCount) : 0;
 
@@ -259,7 +259,7 @@ export default function OnboardingLifecycleDashboard() {
     const byCsm = csms.map(csm => {
       const accts = eligible.filter(a => a.csmName === csm);
       const bd = accts.filter(a => a.rtDone && a.tpDone).length;
-      const target = Math.round(accts.length * 0.70);
+      const target = Math.round(accts.length * 0.90);
       return {
         csm,
         eligible: accts.length,
@@ -403,7 +403,7 @@ export default function OnboardingLifecycleDashboard() {
 
         <Panel className="!border-rose-300 !bg-rose-50">
           <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-rose-500 mb-1.5">
-            Gap to 70% SLA
+            Gap to 90% SLA
           </div>
           <div className="flex items-baseline gap-1.5">
             <span className="font-display text-4xl font-medium tabular text-rose-600">{slaData.gap}</span>
@@ -436,7 +436,7 @@ export default function OnboardingLifecycleDashboard() {
           </div>
           <div className="flex items-baseline gap-1.5">
             <span className="font-display text-4xl font-medium tabular text-midnight">{slaData.eligiblePct}%</span>
-            <span className="text-sm text-muted-text">/ 70% target</span>
+            <span className="text-sm text-muted-text">/ 90% target</span>
           </div>
           <div className="mt-2 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
             <div
@@ -519,7 +519,7 @@ export default function OnboardingLifecycleDashboard() {
             <div className="col-span-2 text-right">This week</div>
             <div className="col-span-2 text-right">Last week</div>
             <div className="col-span-2 text-right">SLA target</div>
-            <div className="col-span-2 text-right">Jun running total</div>
+            <div className="col-span-2 text-right">June SLA progress</div>
             <div className="col-span-1 text-right">SLA gap</div>
           </div>
 
@@ -607,7 +607,7 @@ export default function OnboardingLifecycleDashboard() {
           </div>
         </Panel>
 
-        <Panel title="Both Done" subtitle={`Goal: ${data.bothDoneMetric.slaTarget} (70% of ${data.secondaryMetric.eligibleTotal} eligible B3–B7) by June 30`}>
+        <Panel title="Both Done" subtitle={`Goal: ${data.bothDoneMetric.slaTarget} (90% of ${data.secondaryMetric.eligibleTotal} eligible B3–B7) by June 30`}>
           <div className="space-y-4">
             {/* Team cumulative progress toward SLA target */}
             <div>
@@ -701,7 +701,7 @@ export default function OnboardingLifecycleDashboard() {
                     </span>
                     {!atSla && row.total > 0 && (
                       <span className="text-[10px] text-muted-text ml-1">
-                        gap {Math.max(0, Math.round(row.total * 0.70) - row.bothDone)}
+                        gap {Math.max(0, Math.round(row.total * 0.90) - row.bothDone)}
                       </span>
                     )}
                   </div>

@@ -217,7 +217,7 @@ export async function GET() {
     const eligibleBase = CSMS.reduce((s, c) => s + (csmEligibleCounts[c] ?? 0), 0);
 
     // Both Done metric — projects with both RT and TP completed
-    // Targets are dynamic: 70% of each CSM's eligible (B3-B7) account count
+    // Targets are dynamic: 90% of each CSM's eligible (B3-B7) account count
     const bothDoneByCSM: Record<string, number> = {};
     const rtOnlyByCSM: Record<string, number> = {};
     const tpOnlyByCSM: Record<string, number> = {};
@@ -360,7 +360,7 @@ export async function GET() {
         const csmWtHi = Math.round(wtHi * share);
         const csmBothDone = bothDoneByCSM[csm] ?? 0;
         const csmEligible = csmEligibleCounts[csm] ?? 0;
-        const csmSlaTarget = Math.round(csmEligible * 0.70);
+        const csmSlaTarget = Math.round(csmEligible * 0.90);
         return {
           csm,
           thisWeek: weekNew[csm] ?? 0,
@@ -373,7 +373,7 @@ export async function GET() {
         };
       }),
       bothDoneMetric: {
-        slaTarget: Math.round(eligibleBase * 0.70),
+        slaTarget: Math.round(eligibleBase * 0.90),
         baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
         newlyBothDone: CSMS.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
         teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
@@ -387,7 +387,7 @@ export async function GET() {
             rtOnly: rtOnlyByCSM[csm] ?? 0,
             tpOnly: tpOnlyByCSM[csm] ?? 0,
             eligible,
-            target: Math.round(eligible * 0.70),
+            target: Math.round(eligible * 0.90),
           };
         }),
       },
