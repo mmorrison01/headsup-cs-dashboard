@@ -518,8 +518,8 @@ export default function OnboardingLifecycleDashboard() {
             <div className="col-span-3">CSM</div>
             <div className="col-span-2 text-right">This week</div>
             <div className="col-span-2 text-right">Last week</div>
-            <div className="col-span-2 text-right">Target</div>
-            <div className="col-span-2 text-right">Jun total</div>
+            <div className="col-span-2 text-right">SLA target</div>
+            <div className="col-span-2 text-right">Jun running total</div>
             <div className="col-span-1 text-right">SLA gap</div>
           </div>
 
