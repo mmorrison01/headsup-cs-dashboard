@@ -396,7 +396,7 @@ export default function OnboardingLifecycleDashboard() {
             </div>
             <div className="font-display text-4xl font-medium tabular">{totalNet}</div>
             <div className="text-[11px] text-pulse-blue mt-1.5">
-              vs. {totalNetLast} last wk · target W{data.currentWeekNum}: {data.weekTargets[data.currentWeekNum] ?? "--"}
+              vs. {totalNetLast} last wk
             </div>
           </div>
         </Panel>
