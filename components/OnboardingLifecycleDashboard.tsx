@@ -54,6 +54,7 @@ interface ApiAccount {
   servicePackage: string | null;
   projectType: string | null;
   hypercareDri: string | null;
+  nextEngagementDate: string | null;
   accountStatus: string | null;
   executiveProgramStatus: string | null;
   stage: string | null;
@@ -106,6 +107,7 @@ interface ApiData {
     thisWeek: Record<string, number>;
     lastWeek: Record<string, number>;
     monthTotals: Record<string, number>;
+    velocityHistory: number[];
   };
   secondaryMetric: {
     bothDoneTotal: number;
@@ -284,7 +286,34 @@ export default function OnboardingLifecycleDashboard() {
       .filter(a => a.bucket === "B3" && (a.daysInBucket ?? 0) > 7)
       .sort((a, b) => (b.daysInBucket ?? 0) - (a.daysInBucket ?? 0));
 
-    return { eligibleCount, bothDone, slaTarget, gap, eligiblePct, byBucket, byCsm, oneAway, b3Aging };
+    // B4 accounts stuck > 14 days, sorted longest first
+    const b4Aging = localAccounts
+      .filter(a => a.bucket === "B4" && (a.daysInBucket ?? 0) > 14)
+      .sort((a, b) => (b.daysInBucket ?? 0) - (a.daysInBucket ?? 0));
+
+    // B3/B4/B5 accounts with a go-live date within the next 30 days
+    const now = Date.now();
+    type GoLiveRisk = ApiAccount & { daysUntilGoLive: number };
+    const goLiveAtRisk: GoLiveRisk[] = localAccounts
+      .filter(a => {
+        if (!a.goLiveDate || !["B3", "B4", "B5"].includes(a.bucket)) return false;
+        const days = Math.floor((new Date(a.goLiveDate).getTime() - now) / 86400000);
+        return days >= 0 && days <= 30;
+      })
+      .map(a => ({ ...a, daysUntilGoLive: Math.floor((new Date(a.goLiveDate!).getTime() - now) / 86400000) }))
+      .sort((a, b) => a.daysUntilGoLive - b.daysUntilGoLive);
+
+    // Active B3–B6 accounts missing a future next-engagement date (policy: every account must have one)
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const missingEngagement = localAccounts
+      .filter(a => {
+        if (!["B3", "B4", "B5", "B6"].includes(a.bucket)) return false;
+        if (!a.nextEngagementDate) return true;
+        return new Date(a.nextEngagementDate) < today;
+      })
+      .sort((a, b) => (a.csmName ?? "").localeCompare(b.csmName ?? "") || a.accountName.localeCompare(b.accountName));
+
+    return { eligibleCount, bothDone, slaTarget, gap, eligiblePct, byBucket, byCsm, oneAway, b3Aging, b4Aging, goLiveAtRisk, missingEngagement };
   }, [localAccounts]);
 
   if (loading) {
@@ -403,6 +432,30 @@ export default function OnboardingLifecycleDashboard() {
             <div className="text-[11px] text-pulse-blue mt-1.5">
               vs. {totalNetLast} last wk
             </div>
+            {/* 6-week velocity sparkline */}
+            {data.weeklyCompletions.velocityHistory && (() => {
+              const hist = data.weeklyCompletions.velocityHistory;
+              const maxVal = Math.max(...hist, 1);
+              return (
+                <div className="flex items-end gap-[3px] mt-3 h-8">
+                  {hist.map((v, i) => {
+                    const heightPct = Math.round((v / maxVal) * 100);
+                    const isCurrent = i === hist.length - 1;
+                    return (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-sm transition-all"
+                        style={{
+                          height: `${Math.max(heightPct, 8)}%`,
+                          backgroundColor: isCurrent ? "rgba(100,200,255,0.9)" : "rgba(255,255,255,0.25)",
+                        }}
+                        title={`${i === hist.length - 1 ? "This week" : `${hist.length - 1 - i}w ago`}: ${v}`}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </Panel>
 
@@ -804,6 +857,113 @@ export default function OnboardingLifecycleDashboard() {
           )}
           <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
             {slaData.b3Aging.length} overdue · <span className="text-amber-600">amber = 8–14d</span> · <span className="text-rose-600">red = 15d+</span>
+          </div>
+        </Panel>
+
+        {/* B4 STUCK Aging */}
+        <Panel title="Post-Kickoff STUCK Aging" subtitle="B4 accounts > 14 days stuck · investigate and unblock weekly">
+          {slaData.b4Aging.length === 0 ? (
+            <div className="text-sm text-muted-text py-4 text-center">No overdue B4 accounts — all STUCK accounts within policy.</div>
+          ) : (
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              <div className="grid grid-cols-12 gap-3 pb-2 border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+                <div className="col-span-6">Account</div>
+                <div className="col-span-3">CSM</div>
+                <div className="col-span-3 text-right">Days in B4</div>
+              </div>
+              {slaData.b4Aging.map(a => {
+                const days = a.daysInBucket ?? 0;
+                const critical = days >= 22;
+                const warn = days >= 15;
+                const dayColor = critical ? "text-rose-600 font-semibold" : warn ? "text-amber-600 font-semibold" : "text-muted-text";
+                const dotColor = critical ? "bg-rose-500" : "bg-amber-400";
+                return (
+                  <div key={a.id} className="grid grid-cols-12 gap-3 py-2 items-center border-b border-panel-border last:border-0">
+                    <div className="col-span-6 flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
+                      <span className="text-[12px] text-midnight truncate">{a.accountName}</span>
+                    </div>
+                    <div className="col-span-3 text-[11px] text-muted-text truncate">{a.csmName?.split(" ")[0]}</div>
+                    <div className={`col-span-3 text-right font-mono text-sm tabular ${dayColor}`}>{days}d</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
+            {slaData.b4Aging.length} overdue · <span className="text-amber-600">amber = 15–21d</span> · <span className="text-rose-600">red = 22d+</span>
+          </div>
+        </Panel>
+
+        {/* Go-Live at Risk */}
+        <Panel title="Go-Live at Risk" subtitle="B3/B4/B5 accounts with a planned go-live within 30 days">
+          {slaData.goLiveAtRisk.length === 0 ? (
+            <div className="text-sm text-muted-text py-4 text-center">No accounts at risk — no B3–B5 go-lives within 30 days.</div>
+          ) : (
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              <div className="grid grid-cols-12 gap-3 pb-2 border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+                <div className="col-span-5">Account</div>
+                <div className="col-span-2">CSM</div>
+                <div className="col-span-2 text-center">Bucket</div>
+                <div className="col-span-3 text-right">Days to Go-Live</div>
+              </div>
+              {slaData.goLiveAtRisk.map(a => {
+                const days = a.daysUntilGoLive;
+                const critical = days <= 7;
+                const warn = days <= 14;
+                const dayColor = critical ? "text-rose-600 font-semibold" : warn ? "text-amber-600 font-semibold" : "text-yellow-600 font-semibold";
+                const dotColor = critical ? "bg-rose-500" : warn ? "bg-amber-400" : "bg-yellow-400";
+                return (
+                  <div key={a.id} className="grid grid-cols-12 gap-3 py-2 items-center border-b border-panel-border last:border-0">
+                    <div className="col-span-5 flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
+                      <span className="text-[12px] text-midnight truncate">{a.accountName}</span>
+                    </div>
+                    <div className="col-span-2 text-[11px] text-muted-text truncate">{a.csmName?.split(" ")[0]}</div>
+                    <div className="col-span-2 text-center">
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-midnight border border-panel-border">{a.bucket}</span>
+                    </div>
+                    <div className={`col-span-3 text-right font-mono text-sm tabular ${dayColor}`}>{days}d</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
+            {slaData.goLiveAtRisk.length} at risk · <span className="text-yellow-600">yellow = 15–30d</span> · <span className="text-amber-600">amber = 8–14d</span> · <span className="text-rose-600">red = ≤7d</span>
+          </div>
+        </Panel>
+
+        {/* Missing Date of Next Engagement */}
+        <Panel title="Missing Next Engagement Date" subtitle="Policy: every B3–B6 account must have a future date · schedule and update Salesforce">
+          {slaData.missingEngagement.length === 0 ? (
+            <div className="text-sm text-muted-text py-4 text-center">All B3–B6 accounts have a future next-engagement date.</div>
+          ) : (
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              <div className="grid grid-cols-12 gap-3 pb-2 border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+                <div className="col-span-6">Account</div>
+                <div className="col-span-3">CSM</div>
+                <div className="col-span-3 text-right">Last Date</div>
+              </div>
+              {slaData.missingEngagement.map(a => {
+                const missing = !a.nextEngagementDate;
+                return (
+                  <div key={a.id} className="grid grid-cols-12 gap-3 py-2 items-center border-b border-panel-border last:border-0">
+                    <div className="col-span-6 flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-rose-500" />
+                      <span className="text-[12px] text-midnight truncate">{a.accountName}</span>
+                    </div>
+                    <div className="col-span-3 text-[11px] text-muted-text truncate">{a.csmName?.split(" ")[0]}</div>
+                    <div className="col-span-3 text-right text-[11px] text-rose-600 font-semibold">
+                      {missing ? "—" : new Date(a.nextEngagementDate!).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
+            {slaData.missingEngagement.length} accounts · missing or past-due · update in Salesforce
           </div>
         </Panel>
       </div>

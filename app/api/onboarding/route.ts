@@ -82,11 +82,12 @@ export async function GET() {
     const acctProjectType: Record<string, string | null> = {};
     const acctSolutionsConsultant: Record<string, string | null> = {};
     const acctHypercareDri: Record<string, string | null> = {};
+    const acctNextEngagement: Record<string, string | null> = {};
     const acctProjectId: Record<string, string> = {};
     const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name, Date_of_Next_Engagement__c FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -100,6 +101,7 @@ export async function GET() {
       acctProjectType[acctId] = r.Project_Type__c ?? null;
       acctSolutionsConsultant[acctId] = r.Solutions_Consultant__r?.Name ?? null;
       acctHypercareDri[acctId] = r.Hypercare_DRI__r?.Name ?? null;
+      acctNextEngagement[acctId] = r.Date_of_Next_Engagement__c ?? null;
       acctProjectId[acctId] = r.Id;
       acctProjectStage[acctId] = r.Stage__c ?? null;
     }
@@ -307,6 +309,31 @@ export async function GET() {
       }
     }
 
+    // 6-week velocity history for sparkline — team-level both-done-per-week
+    // Strategy: for each currently-both-done project, find the week its LAST task was completed;
+    // that's when it "became" both-done. Bucket into 6 weekly slots (oldest=0, current=5).
+    const sixWeeksAgo = getMondayISO(-5);
+    const histRecs: any[] = await (conn as any)
+      .query(`SELECT WhatId, CompletedDateTime FROM Task WHERE Subject IN ('Onboarding - Review Training and Documentation','Onboarding - Create Internal test patients') AND Status = 'Completed' AND CompletedDateTime >= ${sixWeeksAgo}`)
+      .then((r: any) => r.records ?? []);
+
+    const projLatestCompletion: Record<string, number> = {};
+    for (const r of histRecs) {
+      const pid = r.WhatId;
+      if (!projRtDone.has(pid) || !projTpDone.has(pid) || !projCsmEx[pid]) continue;
+      const t = new Date(r.CompletedDateTime).getTime();
+      if (!projLatestCompletion[pid] || t > projLatestCompletion[pid]) {
+        projLatestCompletion[pid] = t;
+      }
+    }
+    const currentMondayTs = new Date(getMondayISO(0)).getTime();
+    const velocityHistory = Array(6).fill(0); // index 0 = 5 weeks ago, index 5 = this week
+    for (const ts of Object.values(projLatestCompletion)) {
+      const weekOffset = Math.floor((ts - currentMondayTs) / (7 * 86400000));
+      const idx = 5 + weekOffset;
+      if (idx >= 0 && idx <= 5) velocityHistory[idx]++;
+    }
+
     const bothDoneTotal = CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0);
 
     // Month totals (since June 1)
@@ -393,7 +420,7 @@ export async function GET() {
       },
       rtMetrics: { done: rtDone, total: rtTotal },
       tpMetrics: { done: tpDone, total: tpTotal },
-      weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, monthTotals },
+      weeklyCompletions: { thisWeek: weekNew, lastWeek: lastWeekNew, monthTotals, velocityHistory },
       secondaryMetric: {
         bothDoneTotal,
         activeTotal: totalActive,
@@ -421,6 +448,7 @@ export async function GET() {
         servicePackage: acctServicePackage[r.Id] ?? null,
         projectType: acctProjectType[r.Id] ?? null,
         hypercareDri: acctHypercareDri[r.Id] ?? null,
+        nextEngagementDate: acctNextEngagement[r.Id] ?? null,
         accountStatus: r.Account_Status__c ?? null,
         executiveProgramStatus: r.Executive_Program_Status__c ?? null,
         stage: acctProjectStage[r.Id] ?? null,
