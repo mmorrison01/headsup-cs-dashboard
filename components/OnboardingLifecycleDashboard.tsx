@@ -279,7 +279,12 @@ export default function OnboardingLifecycleDashboard() {
         return order.indexOf(a.bucket) - order.indexOf(b.bucket);
       });
 
-    return { eligibleCount, bothDone, slaTarget, gap, eligiblePct, byBucket, byCsm, oneAway };
+    // B3 accounts stuck > 7 days without a kickoff, sorted longest first
+    const b3Aging = localAccounts
+      .filter(a => a.bucket === "B3" && (a.daysInBucket ?? 0) > 7)
+      .sort((a, b) => (b.daysInBucket ?? 0) - (a.daysInBucket ?? 0));
+
+    return { eligibleCount, bothDone, slaTarget, gap, eligiblePct, byBucket, byCsm, oneAway, b3Aging };
   }, [localAccounts]);
 
   if (loading) {
@@ -764,6 +769,41 @@ export default function OnboardingLifecycleDashboard() {
           )}
           <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
             {slaData.oneAway.length} accounts · complete one task = +1 to SLA count
+          </div>
+        </Panel>
+
+        {/* B3 Pre-Kickoff Aging */}
+        <Panel title="Pre-Kickoff Aging" subtitle="B3 accounts > 7 days without kickoff · kickoff must happen within 7 calendar days of assignment">
+          {slaData.b3Aging.length === 0 ? (
+            <div className="text-sm text-muted-text py-4 text-center">No overdue B3 accounts — all kickoffs on track.</div>
+          ) : (
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              <div className="grid grid-cols-12 gap-3 pb-2 border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
+                <div className="col-span-6">Account</div>
+                <div className="col-span-3">CSM</div>
+                <div className="col-span-3 text-right">Days in B3</div>
+              </div>
+              {slaData.b3Aging.map(a => {
+                const days = a.daysInBucket ?? 0;
+                const critical = days >= 15;
+                const warn = days >= 8;
+                const dayColor = critical ? "text-rose-600 font-semibold" : warn ? "text-amber-600 font-semibold" : "text-muted-text";
+                const dotColor = critical ? "bg-rose-500" : "bg-amber-400";
+                return (
+                  <div key={a.id} className="grid grid-cols-12 gap-3 py-2 items-center border-b border-panel-border last:border-0">
+                    <div className="col-span-6 flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
+                      <span className="text-[12px] text-midnight truncate">{a.accountName}</span>
+                    </div>
+                    <div className="col-span-3 text-[11px] text-muted-text truncate">{a.csmName?.split(" ")[0]}</div>
+                    <div className={`col-span-3 text-right font-mono text-sm tabular ${dayColor}`}>{days}d</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 pt-2.5 border-t border-panel-border text-[11px] text-muted-text">
+            {slaData.b3Aging.length} overdue · <span className="text-amber-600">amber = 8–14d</span> · <span className="text-rose-600">red = 15d+</span>
           </div>
         </Panel>
       </div>
