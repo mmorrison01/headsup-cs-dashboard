@@ -517,15 +517,19 @@ export default function OnboardingLifecycleDashboard() {
           <div className="grid grid-cols-12 gap-3 pb-2 border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text font-medium">
             <div className="col-span-3">CSM</div>
             <div className="col-span-2 text-right">This week</div>
-            <div className="col-span-2 text-right">Last week</div>
+            <div className="col-span-1 text-right">Last week</div>
+            <div className="col-span-1 text-right">Progress in June</div>
             <div className="col-span-2 text-right">SLA target</div>
-            <div className="col-span-2 text-right">June SLA progress</div>
+            <div className="col-span-2 text-right">SLA met</div>
             <div className="col-span-1 text-right">SLA gap</div>
           </div>
 
           {(() => {
             const csmTargetMap = Object.fromEntries(
               data.bothDoneMetric.byCsm.map(c => [c.csm, c.target])
+            );
+            const csmBothDoneMap = Object.fromEntries(
+              data.bothDoneMetric.byCsm.map(c => [c.csm, c.both])
             );
             return data.standupMetrics.map(m => {
               const targetLo = parseInt((m.weekTarget ?? "0").split("-")[0]) || 0;
@@ -540,9 +544,10 @@ export default function OnboardingLifecycleDashboard() {
                     <span className="text-sm font-medium text-midnight">{m.csm}</span>
                   </div>
                   <div className={`col-span-2 text-right font-display text-2xl font-medium tabular ${color}`}>{m.thisWeek}</div>
-                  <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{m.lastWeek}</div>
+                  <div className="col-span-1 text-right font-mono tabular text-sm text-muted-text">{m.lastWeek}</div>
+                  <div className="col-span-1 text-right font-mono tabular text-sm text-midnight">{m.totalMonth}</div>
                   <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{csmTargetMap[m.csm] ?? "--"}</div>
-                  <div className="col-span-2 text-right font-mono tabular text-sm text-midnight">{m.totalMonth}</div>
+                  <div className="col-span-2 text-right font-mono tabular text-sm text-midnight font-medium">{csmBothDoneMap[m.csm] ?? "--"}</div>
                   <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-medium">{m.monthTarget}</div>
                 </div>
               );
@@ -552,9 +557,10 @@ export default function OnboardingLifecycleDashboard() {
           <div className="grid grid-cols-12 gap-3 pt-3 mt-2 border-t-2 border-midnight items-center">
             <div className="col-span-3 text-[11px] uppercase tracking-wider font-semibold text-midnight">Team total</div>
             <div className="col-span-2 text-right font-display text-2xl font-medium tabular text-midnight">{totalNet}</div>
-            <div className="col-span-2 text-right font-mono tabular text-base text-muted-text">{totalNetLast}</div>
+            <div className="col-span-1 text-right font-mono tabular text-sm text-muted-text">{totalNetLast}</div>
+            <div className="col-span-1 text-right font-mono tabular text-sm text-midnight font-semibold">{totalMonth}</div>
             <div className="col-span-2 text-right font-mono tabular text-sm text-muted-text">{data.bothDoneMetric.slaTarget}</div>
-            <div className="col-span-2 text-right font-mono tabular text-sm text-midnight font-semibold">{totalMonth}</div>
+            <div className="col-span-2 text-right font-mono tabular text-sm text-midnight font-semibold">{data.bothDoneMetric.baseline}</div>
             <div className="col-span-1 text-right font-mono tabular text-sm text-rose-500 font-semibold">{slaData.gap}</div>
           </div>
         </div>
