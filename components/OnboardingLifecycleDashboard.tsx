@@ -416,7 +416,7 @@ export default function OnboardingLifecycleDashboard() {
             />
           </div>
           <div className="text-[11px] text-rose-500 mt-1.5">
-            {slaData.bothDone}/{slaData.slaTarget} · {slaData.eligiblePct}% eligible ({slaData.eligibleCount} B3–B7)
+            {slaData.bothDone}/{slaData.slaTarget} · {slaData.eligiblePct}% of {slaData.eligibleCount} eligible B3–B7
           </div>
         </Panel>
 
