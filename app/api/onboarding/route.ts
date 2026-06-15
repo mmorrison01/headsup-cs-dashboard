@@ -56,16 +56,18 @@ export async function GET() {
     const conn = await getSalesforceConnection();
 
     // Active accounts with bucket assignments
-    const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null }[] = await (conn as any)
-      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND (NOT Name LIKE '%Amber Test%')")
+    const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null; Date_of_Next_Engagement__c: string | null }[] = await (conn as any)
+      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Date_of_Next_Engagement__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND (NOT Name LIKE '%Amber Test%')")
       .then((r: any) => r.records ?? []);
 
     const acctBucket: Record<string, string> = {};
     const acctArr: Record<string, number> = {};
+    const acctNextEngagement: Record<string, string | null> = {};
     for (const r of acctRecs) {
       const raw = r.Onboarding_Status__c ?? "pending";
       acctBucket[r.Id] = BUCKET_LABELS[raw] ?? "pending";
       acctArr[r.Id] = r.Total_Deployment_Revenue_Estimate_c__c ?? 0;
+      acctNextEngagement[r.Id] = r.Date_of_Next_Engagement__c ?? null;
     }
     const allAcctIds = Object.keys(acctBucket);
 
@@ -82,12 +84,11 @@ export async function GET() {
     const acctProjectType: Record<string, string | null> = {};
     const acctSolutionsConsultant: Record<string, string | null> = {};
     const acctHypercareDri: Record<string, string | null> = {};
-    const acctNextEngagement: Record<string, string | null> = {};
     const acctProjectId: Record<string, string> = {};
     const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name, Date_of_Next_Engagement__c FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -101,7 +102,6 @@ export async function GET() {
       acctProjectType[acctId] = r.Project_Type__c ?? null;
       acctSolutionsConsultant[acctId] = r.Solutions_Consultant__r?.Name ?? null;
       acctHypercareDri[acctId] = r.Hypercare_DRI__r?.Name ?? null;
-      acctNextEngagement[acctId] = r.Date_of_Next_Engagement__c ?? null;
       acctProjectId[acctId] = r.Id;
       acctProjectStage[acctId] = r.Stage__c ?? null;
     }
