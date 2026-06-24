@@ -256,8 +256,8 @@ export default function OnboardingLifecycleDashboard() {
       };
     });
 
-    // Per-CSM breakdown
-    const csms = data.bothDoneMetric.byCsm.map(c => c.csm);
+    // Per-CSM breakdown — derived from account data so it's safe before `data` loads
+    const csms = [...new Set(localAccounts.filter(a => a.csmName).map(a => a.csmName!))].sort();
     const byCsm = csms.map(csm => {
       const accts = eligible.filter(a => a.csmName === csm);
       const bd = accts.filter(a => a.rtDone && a.tpDone).length;
