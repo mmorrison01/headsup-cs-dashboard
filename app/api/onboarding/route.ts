@@ -14,13 +14,6 @@ const BUCKET_LABELS: Record<string, string> = {
   "7 - Launched": "B7",
 };
 
-const CSM_IDS: Record<string, string> = {
-  "005V500000D3ycrIAB": "Elaine Peters",
-  "005Hu00000Ptvs9IAB": "Jillian Ramos",
-  "005V500000GsbRBIAZ": "Varsha Yaddala",
-};
-
-const CSMS = ["Elaine Peters", "Jillian Ramos", "Varsha Yaddala"];
 
 // June 1 bucket counts — update once confirmed from SF snapshot
 const BASELINE: Record<string, number> = {
@@ -88,7 +81,7 @@ export async function GET() {
     const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -105,6 +98,13 @@ export async function GET() {
       acctProjectId[acctId] = r.Id;
       acctProjectStage[acctId] = r.Stage__c ?? null;
     }
+
+    // Build dynamic CSM registry from project query results
+    const csmIds: Record<string, string> = {};
+    for (const r of projRecs) {
+      if (r.CSM__c && r.CSM__r?.Name) csmIds[r.CSM__c] = r.CSM__r.Name;
+    }
+    const csms = [...new Set(Object.values(csmIds))].sort();
 
     // Onboarding status change dates from AccountHistory (field history tracking)
     const acctStatusChangeDate: Record<string, string | null> = {};
@@ -149,14 +149,14 @@ export async function GET() {
     // Bucket counts — project-based (each project maps to its account's bucket)
     const bucketCounts: Record<string, number> = { B1: 0, B2: 0, B3: 0, B4: 0, B5: 0, B6: 0, B7: 0, pending: 0 };
     const csmBucketCounts: Record<string, Record<string, number>> = {};
-    for (const csm of CSMS) csmBucketCounts[csm] = { B1: 0, B2: 0, B3: 0, B4: 0, B5: 0, B6: 0, B7: 0 };
+    for (const csm of csms) csmBucketCounts[csm] = { B1: 0, B2: 0, B3: 0, B4: 0, B5: 0, B6: 0, B7: 0 };
 
     for (const [pid, csmId] of Object.entries(projCsm)) {
       const acctId = projAcct[pid];
       const bkey = acctBucket[acctId] ?? "pending";
       bucketCounts[bkey] = (bucketCounts[bkey] ?? 0) + 1;
-      const csmName = csmId ? (CSM_IDS[csmId] ?? null) : null;
-      if (csmName && CSMS.includes(csmName) && bkey !== "pending") {
+      const csmName = csmId ? (csmIds[csmId] ?? null) : null;
+      if (csmName && csms.includes(csmName) && bkey !== "pending") {
         csmBucketCounts[csmName][bkey] = (csmBucketCounts[csmName][bkey] ?? 0) + 1;
       }
     }
@@ -187,8 +187,8 @@ export async function GET() {
       for (const r of recs as any[]) {
         const pid = r.WhatId;
         if (!projCsmEx[pid]) continue;
-        const csm = CSM_IDS[projCsmEx[pid]];
-        if (!csm || !CSMS.includes(csm)) continue;
+        const csm = csmIds[projCsmEx[pid]];
+        if (!csm || !csms.includes(csm)) continue;
         (total as any)[csm] = ((total as any)[csm] ?? 0) + 1;
         if (r.Status === "Completed") {
           (done as any)[csm] = ((done as any)[csm] ?? 0) + 1;
@@ -209,14 +209,14 @@ export async function GET() {
     // Eligible base per CSM: B3-B7 accounts (SLA denominator, excludes B1/B2)
     const ELIGIBLE_BUCKETS = new Set(["B3", "B4", "B5", "B6", "B7"]);
     const csmEligibleCounts: Record<string, number> = {};
-    for (const csm of CSMS) csmEligibleCounts[csm] = 0;
+    for (const csm of csms) csmEligibleCounts[csm] = 0;
     for (const [pid, csmId] of Object.entries(projCsmEx)) {
-      const csm = CSM_IDS[csmId];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[csmId];
+      if (!csm || !csms.includes(csm)) continue;
       const bucket = acctBucket[projAcct[pid]] ?? "pending";
       if (ELIGIBLE_BUCKETS.has(bucket)) csmEligibleCounts[csm]++;
     }
-    const eligibleBase = CSMS.reduce((s, c) => s + (csmEligibleCounts[c] ?? 0), 0);
+    const eligibleBase = csms.reduce((s, c) => s + (csmEligibleCounts[c] ?? 0), 0);
 
     // Both Done metric — projects with both RT and TP completed
     // Targets are dynamic: 90% of each CSM's eligible (B3-B7) account count
@@ -225,8 +225,8 @@ export async function GET() {
     const tpOnlyByCSM: Record<string, number> = {};
 
     for (const [pid, csmId] of Object.entries(projCsmEx)) {
-      const csm = CSM_IDS[csmId];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[csmId];
+      if (!csm || !csms.includes(csm)) continue;
       const hasRt = projRtDone.has(pid);
       const hasTp = projTpDone.has(pid);
       if (hasRt && hasTp) bothDoneByCSM[csm] = (bothDoneByCSM[csm] ?? 0) + 1;
@@ -254,8 +254,8 @@ export async function GET() {
       const pid = r.WhatId;
       if (!projCsmEx[pid] || seenRtMtd.has(pid)) continue;
       seenRtMtd.add(pid);
-      const csm = CSM_IDS[projCsmEx[pid]];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[projCsmEx[pid]];
+      if (!csm || !csms.includes(csm)) continue;
       rtMtd++;
       rtMtdByCSM[csm] = (rtMtdByCSM[csm] ?? 0) + 1;
     }
@@ -263,8 +263,8 @@ export async function GET() {
       const pid = r.WhatId;
       if (!projCsmEx[pid] || seenTpMtd.has(pid)) continue;
       seenTpMtd.add(pid);
-      const csm = CSM_IDS[projCsmEx[pid]];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[projCsmEx[pid]];
+      if (!csm || !csms.includes(csm)) continue;
       tpMtd++;
       tpMtdByCSM[csm] = (tpMtdByCSM[csm] ?? 0) + 1;
     }
@@ -272,8 +272,8 @@ export async function GET() {
     // Accounts that newly crossed "both done" in May (both complete, at least one completed since May 4)
     const newlyBothDoneByCSM: Record<string, number> = {};
     for (const [pid, csmId] of Object.entries(projCsmEx)) {
-      const csm = CSM_IDS[csmId];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[csmId];
+      if (!csm || !csms.includes(csm)) continue;
       if (projRtDone.has(pid) && projTpDone.has(pid) && (seenRtMtd.has(pid) || seenTpMtd.has(pid))) {
         newlyBothDoneByCSM[csm] = (newlyBothDoneByCSM[csm] ?? 0) + 1;
       }
@@ -301,8 +301,8 @@ export async function GET() {
 
     // Count newly both done: both RT and TP complete, at least one completed that week
     for (const [pid, csmId] of Object.entries(projCsmEx)) {
-      const csm = CSM_IDS[csmId];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[csmId];
+      if (!csm || !csms.includes(csm)) continue;
       if (projRtDone.has(pid) && projTpDone.has(pid)) {
         if (seenWeek.has(pid)) weekNew[csm] = (weekNew[csm] ?? 0) + 1;
         if (seenLastWeek.has(pid)) lastWeekNew[csm] = (lastWeekNew[csm] ?? 0) + 1;
@@ -334,7 +334,7 @@ export async function GET() {
       if (idx >= 0 && idx <= 5) velocityHistory[idx]++;
     }
 
-    const bothDoneTotal = CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0);
+    const bothDoneTotal = csms.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0);
 
     // Month totals (since June 1)
     const juneStart = `${new Date().getFullYear()}-06-01T00:00:00Z`;
@@ -347,8 +347,8 @@ export async function GET() {
       const pid = r.WhatId;
       if (!projCsmEx[pid] || seenJune.has(pid)) continue;
       seenJune.add(pid);
-      const csm = CSM_IDS[projCsmEx[pid]];
-      if (!csm || !CSMS.includes(csm)) continue;
+      const csm = csmIds[projCsmEx[pid]];
+      if (!csm || !csms.includes(csm)) continue;
       monthTotals[csm] = (monthTotals[csm] ?? 0) + 1;
     }
 
@@ -373,14 +373,14 @@ export async function GET() {
       baseline: BASELINE,
       bucketCounts,
       totalActive,
-      csmByBucket: CSMS.map(csm => ({
+      csmByBucket: csms.map(csm => ({
         csm,
         ...csmBucketCounts[csm],
         total: Object.values(csmBucketCounts[csm]).reduce((a, b) => a + b, 0),
       })),
       eligibleBase,
       csmEligibleCounts,
-      standupMetrics: CSMS.map(csm => {
+      standupMetrics: csms.map(csm => {
         // Per-CSM weekly target: proportional share of team weekly target by eligible book size
         const share = eligibleBase > 0 ? (csmEligibleCounts[csm] ?? 0) / eligibleBase : 0;
         const csmWtLo = Math.round(wtLo * share);
@@ -401,11 +401,11 @@ export async function GET() {
       }),
       bothDoneMetric: {
         slaTarget: Math.round(eligibleBase * 0.90),
-        baseline: CSMS.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
-        newlyBothDone: CSMS.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
-        teamRtOnly: CSMS.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
-        teamTpOnly: CSMS.reduce((s, c) => s + (tpOnlyByCSM[c] ?? 0), 0),
-        byCsm: CSMS.map(csm => {
+        baseline: csms.reduce((s, c) => s + (bothDoneByCSM[c] ?? 0), 0),
+        newlyBothDone: csms.reduce((s, c) => s + (newlyBothDoneByCSM[c] ?? 0), 0),
+        teamRtOnly: csms.reduce((s, c) => s + (rtOnlyByCSM[c] ?? 0), 0),
+        teamTpOnly: csms.reduce((s, c) => s + (tpOnlyByCSM[c] ?? 0), 0),
+        byCsm: csms.map(csm => {
           const eligible = csmEligibleCounts[csm] ?? 0;
           return {
             csm,
@@ -439,7 +439,7 @@ export async function GET() {
           : null,
         customerTemperature: acctTemperature[r.Id] ?? null,
         parallel10: acctParallel10[r.Id] ?? false,
-        csmName: acctCsm[r.Id] ? (CSM_IDS[acctCsm[r.Id]] ?? null) : null,
+        csmName: acctCsm[r.Id] ? (csmIds[acctCsm[r.Id]] ?? null) : null,
         rtDone: acctRtDone.has(r.Id),
         tpDone: acctTpDone.has(r.Id),
         projectId: acctProjectId[r.Id] ?? null,

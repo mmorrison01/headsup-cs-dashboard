@@ -257,7 +257,7 @@ export default function OnboardingLifecycleDashboard() {
     });
 
     // Per-CSM breakdown
-    const csms = ["Elaine Peters", "Jillian Ramos", "Varsha Yaddala"];
+    const csms = data.bothDoneMetric.byCsm.map(c => c.csm);
     const byCsm = csms.map(csm => {
       const accts = eligible.filter(a => a.csmName === csm);
       const bd = accts.filter(a => a.rtDone && a.tpDone).length;
