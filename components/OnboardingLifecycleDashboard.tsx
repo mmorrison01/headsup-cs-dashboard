@@ -238,7 +238,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
     [accounts]);
 
   const withSLA = useMemo(() => accounts
-    .filter(a => a.bucket)
+    .filter(a => a.projectId && /^B\d/.test(a.bucket ?? ""))
     .map(a => {
       const tier = getSLATier(a.servicePackage);
       const { amber, red } = getSLAThresholds(a.bucket, tier);
@@ -283,7 +283,8 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
   }), [withSLA]);
 
   const noPackageAccounts = useMemo(() =>
-    accounts.filter(a => !a.servicePackage).sort((a, b) => (a.csmName ?? "").localeCompare(b.csmName ?? "")),
+    accounts.filter(a => !!a.projectId && /^B\d/.test(a.bucket ?? "") && !a.servicePackage)
+      .sort((a, b) => (a.csmName ?? "").localeCompare(b.csmName ?? "")),
     [accounts]);
 
   const healthBadge = (h: string | null) => {
