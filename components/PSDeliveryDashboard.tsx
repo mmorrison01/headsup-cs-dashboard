@@ -146,6 +146,25 @@ export default function PSDeliveryDashboard() {
     }).sort((a, b) => b.overdue - a.overdue || b.blocked - a.blocked || a.epic.summary.localeCompare(b.epic.summary));
   }, [data, today]);
 
+  // ── Derived: issues due per week per assignee ─────────────────────────────
+
+  const dueByWeekAssignee = useMemo(() => {
+    if (!data) return {} as Record<string, Record<string, PsIssue[]>>;
+    const result: Record<string, Record<string, PsIssue[]>> = {};
+    for (const bucket of data.weeklyCapacity) {
+      const byPerson: Record<string, PsIssue[]> = {};
+      for (const key of bucket.issueKeys) {
+        const issue = data.issues.find(i => i.key === key);
+        if (!issue) continue;
+        const person = issue.assignee ?? "Unassigned";
+        if (!byPerson[person]) byPerson[person] = [];
+        byPerson[person].push(issue);
+      }
+      result[bucket.weekOf] = byPerson;
+    }
+    return result;
+  }, [data]);
+
   // ── Derived: filtered issues ───────────────────────────────────────────────
 
   const filteredIssues = useMemo(() => {
@@ -412,6 +431,64 @@ export default function PSDeliveryDashboard() {
         </div>
       </Panel>
 
+      {/* ── Items Due by Assignee per Week ────────────────────────────────── */}
+      <Panel title="Items Due by Week" subtitle="Open issues by assignee · click an item to open in Jira" noPadding>
+        <div className="overflow-x-auto">
+          <table className="text-[11px] w-full min-w-[700px]">
+            <thead>
+              <tr className="border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text">
+                <th className="px-4 py-2 text-left font-medium w-32">Assignee</th>
+                {weeklyCapacity.map(b => {
+                  const isCurrent = thisWeek?.weekOf === b.weekOf;
+                  const isPast = b.weekOf < today.slice(0, 8) + "01";
+                  return (
+                    <th key={b.weekOf} className={`px-2 py-2 text-center font-medium ${isCurrent ? "text-protocol-blue" : isPast ? "opacity-40" : ""}`}>
+                      {b.label}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {[...assignees, ...(Object.values(dueByWeekAssignee).some(w => w["Unassigned"]) ? ["Unassigned"] : [])].map(person => {
+                const hasAny = weeklyCapacity.some(b => (dueByWeekAssignee[b.weekOf]?.[person]?.length ?? 0) > 0);
+                if (!hasAny) return null;
+                return (
+                  <tr key={person} className="border-t border-panel-border/50">
+                    <td className="px-4 py-2 font-medium text-midnight">{person.split(" ")[0]}</td>
+                    {weeklyCapacity.map(b => {
+                      const issues = dueByWeekAssignee[b.weekOf]?.[person] ?? [];
+                      const isPast = b.weekOf < today.slice(0, 8) + "01";
+                      return (
+                        <td key={b.weekOf} className={`px-2 py-1.5 align-top ${isPast ? "opacity-40" : ""}`}>
+                          <div className="flex flex-col gap-0.5">
+                            {issues.map(i => {
+                              const isOverdue = i.statusCategory !== "Done" && i.dueDate && i.dueDate < today;
+                              return (
+                                <a
+                                  key={i.key}
+                                  href={i.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title={i.summary}
+                                  className={`font-mono text-[10px] hover:underline ${i.blocked ? "text-rose-600" : isOverdue ? "text-rose-500" : "text-protocol-blue"}`}
+                                >
+                                  {i.key}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
       {/* ── Portfolio (left sidebar) + Workbench (right) ──────────────────── */}
       <div className="flex gap-4 items-start">
 
@@ -443,9 +520,19 @@ export default function PSDeliveryDashboard() {
                       {(row.overdue > 0 || row.blocked > 0) && (
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
                       )}
-                      <span className="text-[11px] font-medium text-midnight truncate" title={row.epic.summary}>
+                      <span className="text-[11px] font-medium text-midnight truncate flex-1" title={row.epic.summary}>
                         {row.epic.summary}
                       </span>
+                      <a
+                        href={row.epic.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        title="Open Epic in Jira"
+                        className="flex-shrink-0 text-muted-text hover:text-protocol-blue text-[10px] leading-none"
+                      >
+                        ↗
+                      </a>
                     </div>
                     <div className="flex gap-2 mt-0.5 text-[10px] pl-3">
                       <span className="text-muted-text">{row.open} open</span>
