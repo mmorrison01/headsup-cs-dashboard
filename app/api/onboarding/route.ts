@@ -49,18 +49,20 @@ export async function GET() {
     const conn = await getSalesforceConnection();
 
     // Active accounts with bucket assignments
-    const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null; Date_of_Next_Engagement__c: string | null }[] = await (conn as any)
-      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Date_of_Next_Engagement__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND (NOT Name LIKE '%Amber Test%')")
+    const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null; Date_of_Next_Engagement__c: string | null; Service_Package__c: string | null }[] = await (conn as any)
+      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Date_of_Next_Engagement__c, Service_Package__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND (NOT Name LIKE '%Amber Test%')")
       .then((r: any) => r.records ?? []);
 
     const acctBucket: Record<string, string> = {};
     const acctArr: Record<string, number> = {};
     const acctNextEngagement: Record<string, string | null> = {};
+    const acctServicePackageFromAcct: Record<string, string | null> = {};
     for (const r of acctRecs) {
       const raw = r.Onboarding_Status__c ?? "pending";
       acctBucket[r.Id] = BUCKET_LABELS[raw] ?? "pending";
       acctArr[r.Id] = r.Total_Deployment_Revenue_Estimate_c__c ?? 0;
       acctNextEngagement[r.Id] = r.Date_of_Next_Engagement__c ?? null;
+      acctServicePackageFromAcct[r.Id] = r.Service_Package__c ?? null;
     }
     const allAcctIds = Object.keys(acctBucket);
 
@@ -73,7 +75,8 @@ export async function GET() {
     const acctTemperature: Record<string, string | null> = {};
     const acctParallel10: Record<string, boolean> = {};
     const acctProjectHealth: Record<string, string | null> = {};
-    const acctServicePackage: Record<string, string | null> = {};
+    // Seeded from Account.Service_Package__c; Project value fills gaps if Account has none
+    const acctServicePackage: Record<string, string | null> = { ...acctServicePackageFromAcct };
     const acctProjectType: Record<string, string | null> = {};
     const acctSolutionsConsultant: Record<string, string | null> = {};
     const acctHypercareDri: Record<string, string | null> = {};
@@ -91,7 +94,8 @@ export async function GET() {
       acctTemperature[acctId] = r.Customer_Temperature__c ?? null;
       acctParallel10[acctId] = r.Parallel_1_0__c ?? false;
       acctProjectHealth[acctId] = r.Project_Health__c ?? null;
-      acctServicePackage[acctId] = r.Service_Package__c ?? null;
+      // Account.Service_Package__c is authoritative; Project.Service_Package__c fills the gap only if Account has nothing
+      acctServicePackage[acctId] = acctServicePackageFromAcct[acctId] ?? r.Service_Package__c ?? null;
       acctProjectType[acctId] = r.Project_Type__c ?? null;
       acctSolutionsConsultant[acctId] = r.Solutions_Consultant__r?.Name ?? null;
       acctHypercareDri[acctId] = r.Hypercare_DRI__r?.Name ?? null;

@@ -196,7 +196,7 @@ function getSLATier(pkg: string | null): "pro" | "premiere" | "enterprise" | nul
   const p = pkg.toLowerCase();
   if (p.includes("enterprise")) return "enterprise";
   if (p.includes("premiere") || p.includes("premier")) return "premiere";
-  if (p.includes("professional") || p === "pro") return "pro";
+  if (p.includes("professional") || p === "pro" || p.includes("essential") || p.includes("trial")) return "pro";
   return null;
 }
 
@@ -231,6 +231,11 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
   updatedAt: string | null;
 }) {
   const [filterCsm, setFilterCsm] = useState("all");
+  const [filterHealth, setFilterHealth] = useState("all");
+
+  const healthValues = useMemo(() =>
+    [...new Set(accounts.filter(a => a.projectHealth).map(a => a.projectHealth!))].sort(),
+    [accounts]);
 
   const withSLA = useMemo(() => accounts
     .filter(a => a.bucket)
@@ -264,23 +269,36 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
     [csms, withSLA]);
 
   const filtered = useMemo(() => {
-    const base = filterCsm === "all" ? withSLA : withSLA.filter(a => a.csmName === filterCsm);
+    let base = filterCsm === "all" ? withSLA : withSLA.filter(a => a.csmName === filterCsm);
+    if (filterHealth !== "all") base = base.filter(a => a.projectHealth === filterHealth);
     return [...base].sort((a, b) =>
       STATUS_ORDER[a.slaStatus] - STATUS_ORDER[b.slaStatus] || b.daysOver - a.daysOver
     );
-  }, [withSLA, filterCsm]);
+  }, [withSLA, filterCsm, filterHealth]);
 
   const totals = useMemo(() => ({
-    red:      withSLA.filter(a => a.slaStatus === "red").length,
-    amber:    withSLA.filter(a => a.slaStatus === "amber").length,
-    onTrack:  withSLA.filter(a => a.slaStatus === "on-track").length,
-    unknown:  withSLA.filter(a => a.slaStatus === "unknown").length,
-    nullPkg:  withSLA.filter(a => !a.servicePackage).length,
-    badPkg:   withSLA.filter(a => !!a.servicePackage && !getSLATier(a.servicePackage)).length,
-    badPkgValues: [...new Set(
-      withSLA.filter(a => !!a.servicePackage && !getSLATier(a.servicePackage)).map(a => a.servicePackage!)
-    )],
+    red:     withSLA.filter(a => a.slaStatus === "red").length,
+    amber:   withSLA.filter(a => a.slaStatus === "amber").length,
+    onTrack: withSLA.filter(a => a.slaStatus === "on-track").length,
   }), [withSLA]);
+
+  const noPackageAccounts = useMemo(() =>
+    accounts.filter(a => !a.servicePackage).sort((a, b) => (a.csmName ?? "").localeCompare(b.csmName ?? "")),
+    [accounts]);
+
+  const healthBadge = (h: string | null) => {
+    if (!h) return <span className="text-muted-text italic text-xs">—</span>;
+    const cls: Record<string, string> = {
+      "Green":    "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "On Track": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "Yellow":   "bg-amber-100 text-amber-700 border-amber-200",
+      "Amber":    "bg-amber-100 text-amber-700 border-amber-200",
+      "Red":      "bg-rose-100 text-rose-700 border-rose-200",
+      "At Risk":  "bg-rose-100 text-rose-700 border-rose-200",
+    };
+    const c = cls[h] ?? "bg-slate-100 text-slate-600 border-slate-200";
+    return <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium border ${c}`}>{h}</span>;
+  };
 
   const statusBadge = (s: SLAStatus) => {
     const cfg: Record<SLAStatus, { label: string; cls: string }> = {
@@ -319,10 +337,21 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
           <div>
             <div className="font-display text-xl font-medium text-midnight">SLA Performance Dashboard</div>
             <div className="text-sm text-muted-text mt-0.5">
-              {accounts.length} active accounts · Days in stage vs. per-tier thresholds
+              {accounts.length} active projects · Days in stage vs. per-tier thresholds
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-muted-text">Filter by Health Score</label>
+              <select
+                value={filterHealth}
+                onChange={e => setFilterHealth(e.target.value)}
+                className="border border-panel-border rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-cyan"
+              >
+                <option value="all">All Health Scores</option>
+                {healthValues.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-text">Filter by CSM</label>
               <select
@@ -353,7 +382,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
             { label: "Red Alert",   value: totals.red,     sub: "exceeds red threshold",   bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-600" },
             { label: "Amber Alert", value: totals.amber,   sub: "approaching red",          bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-600" },
             { label: "On Track",    value: totals.onTrack, sub: "within SLA",               bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-600" },
-            { label: "No Package",  value: totals.unknown, sub: totals.badPkg > 0 ? `${totals.nullPkg} not set · ${totals.badPkg} unrecognised value` : `${totals.nullPkg} not set in SFDC`,  bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-500" },
+            { label: "Total Active", value: accounts.length, sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
           ].map(k => (
             <div key={k.label} className={`${k.bg} border ${k.border} rounded-sm px-4 py-3`}>
               <div className={`text-xs font-semibold uppercase tracking-wide ${k.text}`}>{k.label}</div>
@@ -363,23 +392,43 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
           ))}
         </div>
 
-        {/* Data quality callout */}
-        {(totals.nullPkg > 0 || totals.badPkg > 0) && (
-          <div className="bg-amber-50 border border-amber-200 rounded-sm px-4 py-3 text-sm space-y-1">
-            <div className="font-semibold text-amber-800">Data quality — Service Package not set</div>
-            {totals.nullPkg > 0 && (
-              <div className="text-amber-700">
-                <span className="font-medium">{totals.nullPkg} project{totals.nullPkg !== 1 ? "s" : ""}</span> have no Service Package in Salesforce.
-                CSMs need to set <span className="font-mono text-xs">Service_Package__c</span> on the Project record so SLA thresholds can apply.
+        {/* No Service Package callout */}
+        {noPackageAccounts.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <span className="text-sm font-semibold text-slate-700">Missing Service Package</span>
+                <span className="ml-2 text-xs text-slate-500">{noPackageAccounts.length} project{noPackageAccounts.length !== 1 ? "s" : ""} — SLA thresholds cannot apply until set in Salesforce</span>
               </div>
-            )}
-            {totals.badPkg > 0 && (
-              <div className="text-amber-700">
-                <span className="font-medium">{totals.badPkg} project{totals.badPkg !== 1 ? "s" : ""}</span> have unrecognised values:{" "}
-                <span className="font-mono text-xs">{totals.badPkgValues.join(", ")}</span>.
-                These don't map to Professional / Premiere / Enterprise — update the picklist or the mapping.
-              </div>
-            )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs text-muted-text bg-slate-50/80">
+                    <th className="text-left px-3 py-2 font-medium">Account</th>
+                    <th className="text-left px-3 py-2 font-medium">Bucket</th>
+                    <th className="text-right px-3 py-2 font-medium">Days</th>
+                    <th className="text-left px-3 py-2 font-medium">CSM</th>
+                    <th className="text-left px-3 py-2 font-medium">Health Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {noPackageAccounts.map(a => (
+                    <tr key={a.id} className="border-b border-slate-100 last:border-0 hover:bg-white/60 transition-colors">
+                      <td className="px-3 py-2 font-medium text-midnight">{a.accountName}</td>
+                      <td className="px-3 py-2">
+                        {a.bucket
+                          ? <span className="w-5 h-5 rounded-sm text-[10px] font-bold text-white inline-flex items-center justify-center" style={{ backgroundColor: BUCKET_COLORS[a.bucket] ?? "#94A3B8" }}>{a.bucket}</span>
+                          : <span className="text-muted-text italic text-xs">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-mono text-midnight">{a.daysInBucket ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-text">{a.csmName ?? "—"}</td>
+                      <td className="px-3 py-2">{healthBadge(a.projectHealth)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -456,7 +505,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                       <th className="text-right px-3 py-2 font-medium">Amber</th>
                       <th className="text-right px-3 py-2 font-medium">Red</th>
                       <th className="text-right px-3 py-2 font-medium">Over</th>
-                      <th className="text-left px-3 py-2 font-medium">Status</th>
+                      <th className="text-left px-3 py-2 font-medium">Health Score</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -490,7 +539,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                             ? <span className={a.slaStatus === "red" ? "text-rose-600 font-semibold" : "text-amber-600 font-semibold"}>+{a.daysOver}d</span>
                             : <span className="text-muted-text">—</span>}
                         </td>
-                        <td className="px-3 py-2">{statusBadge(a.slaStatus)}</td>
+                        <td className="px-3 py-2">{healthBadge(a.projectHealth)}</td>
                       </tr>
                     ))}
                   </tbody>
