@@ -121,7 +121,100 @@ interface ApiData {
 
 // SLA target is dynamic (90% of eligible base), computed from live data in slaData memo
 
+const SLA_AMBER = [
+  { bucket: "B1", label: "B1 · Hand-Raised Migration",   pro: 7,  premiere: 7,  enterprise: 7  },
+  { bucket: "B2", label: "B2 · Deferred Migration*",      pro: 60, premiere: 60, enterprise: 60 },
+  { bucket: "B3", label: "B3 · Pre-Kickoff Active",       pro: 10, premiere: 10, enterprise: 10 },
+  { bucket: "B4", label: "B4 · Post-Kickoff STUCK",       pro: 7,  premiere: 7,  enterprise: 7  },
+  { bucket: "B5", label: "B5 · Mid-Journey Working",      pro: 21, premiere: 30, enterprise: 40 },
+  { bucket: "B6", label: "B6 · Near Launch",              pro: 30, premiere: 35, enterprise: 60 },
+  { bucket: "B7", label: "B7 · Launched",                 pro: 35, premiere: 40, enterprise: 90 },
+];
+
+const SLA_RED = [
+  { bucket: "B1", label: "B1 · Hand-Raised Migration",   pro: 7,  premiere: 7,  enterprise: 7  },
+  { bucket: "B2", label: "B2 · Deferred Migration*",      pro: 60, premiere: 60, enterprise: 60 },
+  { bucket: "B3", label: "B3 · Pre-Kickoff Active",       pro: 12, premiere: 12, enterprise: 12 },
+  { bucket: "B4", label: "B4 · Post-Kickoff STUCK",       pro: 12, premiere: 12, enterprise: 12 },
+  { bucket: "B5", label: "B5 · Mid-Journey Working",      pro: 26, premiere: 35, enterprise: 45 },
+  { bucket: "B6", label: "B6 · Near Launch",              pro: 35, premiere: 40, enterprise: 65 },
+  { bucket: "B7", label: "B7 · Launched",                 pro: 40, premiere: 45, enterprise: 95 },
+];
+
+function SLATable({ rows, alertColor }: { rows: typeof SLA_AMBER; alertColor: "amber" | "red" }) {
+  const isAmber = alertColor === "amber";
+  const headerBg   = isAmber ? "bg-amber-50 border-amber-200"   : "bg-rose-50 border-rose-200";
+  const labelColor = isAmber ? "text-amber-700"  : "text-rose-700";
+  const dotColor   = isAmber ? "bg-amber-400"    : "bg-rose-500";
+  const rowHover   = isAmber ? "hover:bg-amber-50/60" : "hover:bg-rose-50/60";
+  return (
+    <div className="flex-1 rounded border border-panel-border overflow-hidden">
+      <div className={`px-4 py-3 border-b ${headerBg} flex items-center gap-2`}>
+        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor}`} />
+        <span className={`text-sm font-semibold ${labelColor}`}>
+          {isAmber ? "Aging Limits for Amber Alert" : "Aging Limits for Red Alert"}
+        </span>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-panel-border bg-light-bg">
+            <th className="text-left px-4 py-2 font-medium text-muted-text text-xs">Onboarding Package</th>
+            <th className="text-right px-4 py-2 font-medium text-muted-text text-xs">Professional</th>
+            <th className="text-right px-4 py-2 font-medium text-muted-text text-xs">Premiere</th>
+            <th className="text-right px-4 py-2 font-medium text-muted-text text-xs">Enterprise</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={row.bucket} className={`border-b border-panel-border last:border-0 ${rowHover} transition-colors`}>
+              <td className="px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-5 h-5 rounded-sm text-[10px] font-bold text-white flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: BUCKET_COLORS[row.bucket] ?? "#94A3B8" }}
+                  >
+                    {row.bucket}
+                  </span>
+                  <span className="text-midnight">{row.label.replace(/^B\d · /, "")}</span>
+                </div>
+              </td>
+              <td className="px-4 py-2.5 text-right tabular-nums font-mono text-midnight">{row.pro}d</td>
+              <td className="px-4 py-2.5 text-right tabular-nums font-mono text-midnight">{row.premiere}d</td>
+              <td className="px-4 py-2.5 text-right tabular-nums font-mono text-midnight">{row.enterprise}d</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SLAStatusView() {
+  return (
+    <div className="tab-fade-in space-y-6">
+      <div>
+        <div className="text-xs font-semibold text-muted-text uppercase tracking-wider mb-1">Onboarding Lifecycle · SLA Reference</div>
+        <div className="font-display text-2xl font-medium text-midnight">Onboarding SLA Targets</div>
+        <div className="text-sm text-muted-text mt-1">
+          Maximum days in stage before an aging alert is triggered, by onboarding package tier.
+          Alerts are cumulative — Red replaces Amber once the Red threshold is crossed.
+        </div>
+      </div>
+
+      <div className="flex gap-4 items-start">
+        <SLATable rows={SLA_AMBER} alertColor="amber" />
+        <SLATable rows={SLA_RED}   alertColor="red"   />
+      </div>
+
+      <div className="text-xs text-muted-text border-t border-panel-border pt-3">
+        * B2 Deferred Migration SLA effective July 1, 2026
+      </div>
+    </div>
+  );
+}
+
 export default function OnboardingLifecycleDashboard() {
+  const [subView, setSubView] = useState<"status" | "sla">("status");
   const [data, setData] = useState<ApiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -316,12 +409,42 @@ export default function OnboardingLifecycleDashboard() {
     return { eligibleCount, bothDone, slaTarget, gap, eligiblePct, byBucket, byCsm, oneAway, b3Aging, b4Aging, goLiveAtRisk, missingEngagement };
   }, [localAccounts]);
 
+  const subNav = (
+    <div className="flex gap-0 mb-6 border-b border-panel-border">
+      {(["status", "sla"] as const).map(key => (
+        <button
+          key={key}
+          onClick={() => setSubView(key)}
+          className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
+            subView === key
+              ? "border-cyan text-midnight font-medium"
+              : "border-transparent text-muted-text hover:text-midnight"
+          }`}
+        >
+          {key === "status" ? "Onboarding Status" : "SLA Reference"}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (subView === "sla") {
+    return (
+      <div className="tab-fade-in">
+        {subNav}
+        <SLAStatusView />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="tab-fade-in flex items-center justify-center py-32">
-        <div className="text-center">
-          <div className="font-display text-2xl font-medium text-midnight mb-2">Loading…</div>
-          <div className="text-sm text-muted-text">Pulling live data from Salesforce</div>
+      <div className="tab-fade-in">
+        {subNav}
+        <div className="flex items-center justify-center py-32">
+          <div className="text-center">
+            <div className="font-display text-2xl font-medium text-midnight mb-2">Loading…</div>
+            <div className="text-sm text-muted-text">Pulling live data from Salesforce</div>
+          </div>
         </div>
       </div>
     );
@@ -330,6 +453,7 @@ export default function OnboardingLifecycleDashboard() {
   if (error || !data) {
     return (
       <div className="tab-fade-in py-8">
+        {subNav}
         <div className="bg-rose-50 border border-rose-200 rounded-sm px-4 py-3 text-sm text-status-red">
           Unable to load Salesforce data. {error}
         </div>
@@ -403,6 +527,7 @@ export default function OnboardingLifecycleDashboard() {
 
   return (
     <div className="tab-fade-in">
+      {subNav}
       <div className="flex items-start justify-between mb-6">
         <SectionHeader
           kicker="Onboarding Lifecycle · Operation GoLive · June 2026"
