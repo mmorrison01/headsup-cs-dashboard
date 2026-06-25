@@ -271,10 +271,15 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
   }, [withSLA, filterCsm]);
 
   const totals = useMemo(() => ({
-    red:     withSLA.filter(a => a.slaStatus === "red").length,
-    amber:   withSLA.filter(a => a.slaStatus === "amber").length,
-    onTrack: withSLA.filter(a => a.slaStatus === "on-track").length,
-    unknown: withSLA.filter(a => a.slaStatus === "unknown").length,
+    red:      withSLA.filter(a => a.slaStatus === "red").length,
+    amber:    withSLA.filter(a => a.slaStatus === "amber").length,
+    onTrack:  withSLA.filter(a => a.slaStatus === "on-track").length,
+    unknown:  withSLA.filter(a => a.slaStatus === "unknown").length,
+    nullPkg:  withSLA.filter(a => !a.servicePackage).length,
+    badPkg:   withSLA.filter(a => !!a.servicePackage && !getSLATier(a.servicePackage)).length,
+    badPkgValues: [...new Set(
+      withSLA.filter(a => !!a.servicePackage && !getSLATier(a.servicePackage)).map(a => a.servicePackage!)
+    )],
   }), [withSLA]);
 
   const statusBadge = (s: SLAStatus) => {
@@ -348,7 +353,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
             { label: "Red Alert",   value: totals.red,     sub: "exceeds red threshold",   bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-600" },
             { label: "Amber Alert", value: totals.amber,   sub: "approaching red",          bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-600" },
             { label: "On Track",    value: totals.onTrack, sub: "within SLA",               bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-600" },
-            { label: "No Package",  value: totals.unknown, sub: "package not set in SFDC",  bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-500" },
+            { label: "No Package",  value: totals.unknown, sub: totals.badPkg > 0 ? `${totals.nullPkg} not set · ${totals.badPkg} unrecognised value` : `${totals.nullPkg} not set in SFDC`,  bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-500" },
           ].map(k => (
             <div key={k.label} className={`${k.bg} border ${k.border} rounded-sm px-4 py-3`}>
               <div className={`text-xs font-semibold uppercase tracking-wide ${k.text}`}>{k.label}</div>
@@ -357,6 +362,26 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
             </div>
           ))}
         </div>
+
+        {/* Data quality callout */}
+        {(totals.nullPkg > 0 || totals.badPkg > 0) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-sm px-4 py-3 text-sm space-y-1">
+            <div className="font-semibold text-amber-800">Data quality — Service Package not set</div>
+            {totals.nullPkg > 0 && (
+              <div className="text-amber-700">
+                <span className="font-medium">{totals.nullPkg} project{totals.nullPkg !== 1 ? "s" : ""}</span> have no Service Package in Salesforce.
+                CSMs need to set <span className="font-mono text-xs">Service_Package__c</span> on the Project record so SLA thresholds can apply.
+              </div>
+            )}
+            {totals.badPkg > 0 && (
+              <div className="text-amber-700">
+                <span className="font-medium">{totals.badPkg} project{totals.badPkg !== 1 ? "s" : ""}</span> have unrecognised values:{" "}
+                <span className="font-mono text-xs">{totals.badPkgValues.join(", ")}</span>.
+                These don't map to Professional / Premiere / Enterprise — update the picklist or the mapping.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* CSM accountability + account detail — side by side */}
         <div className="flex gap-4 items-start">
