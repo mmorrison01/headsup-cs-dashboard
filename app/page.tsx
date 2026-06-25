@@ -40,36 +40,39 @@ export default function Home() {
           <div className="flex items-center justify-between py-3 border-b border-white/10">
             {/* Co-brand lockup: Nicoya | Heads Up */}
             <div className="flex items-center gap-5">
-              {/* Nicoya */}
-              <div className="flex flex-col items-center gap-[3px]">
-                <svg viewBox="0 0 76 20" width="66" height="17" fill="none" aria-label="Nicoya">
+              {/* Nicoya: sinusoidal wave + wordmark */}
+              <div className="flex flex-col items-center gap-1">
+                <svg viewBox="0 0 80 22" width="68" height="19" fill="none" aria-label="Nicoya wave">
                   <path
-                    d="M 2,10 C 9,1 17,1 25,10 C 33,19 41,19 49,10 C 57,1 65,1 73,10"
+                    d="M 2,11 C 8,2 16,2 24,11 C 32,20 40,20 48,11 C 56,2 64,2 72,11 C 76,15.5 79,18 80,18"
                     stroke="white"
-                    strokeWidth="2.8"
+                    strokeWidth="2.6"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="text-[15px] tracking-wide text-white" style={{ fontWeight: 300 }}>nicoya</span>
+                <span className="text-[15px] tracking-wide text-white" style={{ fontWeight: 300, letterSpacing: "0.06em" }}>nicoya</span>
               </div>
 
-              <div className="w-px h-10 bg-white/25" />
+              <div className="w-px h-11 bg-white/25" />
 
-              {/* Heads Up */}
+              {/* Heads Up: 3 bars with dot-grid circles above each */}
               <div className="flex items-center gap-2.5">
-                <svg viewBox="0 0 32 30" width="30" height="28" fill="white" aria-hidden="true">
+                <svg viewBox="0 0 34 32" width="30" height="28" fill="white" aria-hidden="true">
                   <defs>
-                    <pattern id="hu-hatch" x="0" y="0" width="4" height="1.2" patternUnits="userSpaceOnUse">
-                      <line x1="0" y1="0.6" x2="4" y2="0.6" stroke="white" strokeWidth="0.5"/>
+                    <pattern id="hu-dots" x="0" y="0" width="2.4" height="2.4" patternUnits="userSpaceOnUse">
+                      <circle cx="1.2" cy="1.2" r="0.6" fill="white"/>
                     </pattern>
                   </defs>
-                  <circle cx="14.5" cy="3" r="3" fill="url(#hu-hatch)"/>
-                  <circle cx="23" cy="6" r="2.4" fill="url(#hu-hatch)"/>
-                  <circle cx="2.2" cy="27" r="2" fill="url(#hu-hatch)"/>
-                  <rect x="5.5" y="16" width="6" height="12" rx="3"/>
-                  <rect x="12" y="6" width="6" height="22" rx="3"/>
-                  <rect x="19.5" y="10.5" width="6" height="17.5" rx="3"/>
+                  {/* Left bar (short) — top at y=18, center-x=6 */}
+                  <circle cx="6" cy="15" r="3.2" fill="url(#hu-dots)"/>
+                  <rect x="2.5" y="18" width="7" height="13" rx="3.5"/>
+                  {/* Center bar (tall) — top at y=7, center-x=17 */}
+                  <circle cx="17" cy="4" r="3.5" fill="url(#hu-dots)"/>
+                  <rect x="13.5" y="7.5" width="7" height="23.5" rx="3.5"/>
+                  {/* Right bar (medium) — top at y=11.5, center-x=28 */}
+                  <circle cx="28" cy="8.5" r="3" fill="url(#hu-dots)"/>
+                  <rect x="24.5" y="11.5" width="7" height="19.5" rx="3.5"/>
                 </svg>
                 <div>
                   <div className="font-display text-white font-bold text-[17px] leading-tight tracking-tight">
