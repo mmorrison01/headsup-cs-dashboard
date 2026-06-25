@@ -338,6 +338,100 @@ export default function PSDeliveryDashboard() {
         ))}
       </div>
 
+      {/* ── Capacity Calendar ──────────────────────────────────────────────── */}
+      {psView === "overview" && <Panel title="Capacity Calendar" subtitle="Estimated hours due per assignee each week · green < 20h · amber 20–35h · red > 35h · click to filter Work Items">
+        <div className="overflow-x-auto">
+          <table className="text-[11px] w-full min-w-[700px]">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-[0.1em] text-muted-text">
+                <th className="text-left pb-2 pr-4 font-medium w-32">Assignee</th>
+                {weeklyCapacity.map(b => {
+                  const isPast = b.weekOf < today.slice(0, 8) + "01";
+                  const isCurrent = thisWeek?.weekOf === b.weekOf;
+                  return (
+                    <th
+                      key={b.weekOf}
+                      onClick={() => setFilterWeek(filterWeek === b.weekOf ? "all" : b.weekOf)}
+                      className={`pb-2 px-2 text-center font-medium cursor-pointer transition-colors hover:text-midnight ${isCurrent ? "text-protocol-blue" : isPast ? "opacity-40" : ""} ${filterWeek === b.weekOf ? "underline" : ""}`}
+                    >
+                      {b.label}
+                      {isCurrent && <div className="text-[9px] text-protocol-blue">this wk</div>}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Items due row */}
+              <tr className="border-t border-panel-border">
+                <td className="py-2 pr-4 text-muted-text text-[10px] font-medium uppercase tracking-[0.08em]">Items Due</td>
+                {weeklyCapacity.map(b => {
+                  const count = b.issueKeys.length;
+                  const isPast = b.weekOf < today.slice(0, 7) + "-01";
+                  return (
+                    <td
+                      key={b.weekOf}
+                      onClick={() => setFilterWeek(filterWeek === b.weekOf ? "all" : b.weekOf)}
+                      className={`py-2 px-2 text-center tabular-nums cursor-pointer transition-colors hover:bg-subtle rounded-sm ${isPast ? "opacity-40" : ""} ${count > 0 ? "font-semibold text-midnight" : "text-muted-text"}`}
+                    >
+                      {count > 0 ? count : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+              {/* Team total row */}
+              <tr className="border-t border-panel-border font-semibold">
+                <td className="py-2 pr-4 text-midnight">Team Total</td>
+                {weeklyCapacity.map(b => {
+                  const isPast = b.weekOf < today.slice(0, 7) + "-01";
+                  return (
+                    <td key={b.weekOf} className={`py-2 px-2 text-center tabular-nums rounded-sm ${capacityColor(b.totalHours)} ${isPast ? "opacity-40" : ""}`}>
+                      {b.totalHours > 0 ? fmtHrs(b.totalHours) : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+              {/* Per-assignee rows */}
+              {assignees.map(person => (
+                <tr key={person} className="border-t border-panel-border/50">
+                  <td
+                    className="py-2 pr-4 text-midnight cursor-pointer hover:text-protocol-blue truncate max-w-[120px]"
+                    title={person}
+                    onClick={() => setFilterAssignee(filterAssignee === person ? "all" : person)}
+                  >
+                    {person.split(" ")[0]}
+                  </td>
+                  {weeklyCapacity.map(b => {
+                    const hrs = b.byAssignee[person] ?? 0;
+                    const isPast = b.weekOf < today.slice(0, 7) + "-01";
+                    return (
+                      <td
+                        key={b.weekOf}
+                        onClick={() => { setFilterAssignee(person); setFilterWeek(filterWeek === b.weekOf ? "all" : b.weekOf); }}
+                        className={`py-2 px-2 text-center tabular-nums rounded-sm cursor-pointer ${capacityColor(hrs)} ${isPast ? "opacity-40" : ""}`}
+                      >
+                        {hrs > 0 ? fmtHrs(hrs) : "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {assignees.length === 0 && (
+                <tr><td colSpan={9} className="py-4 text-center text-muted-text">No assignees with due dates in this window</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 flex items-center gap-4 text-[10px] text-muted-text">
+          <span>Click week or person cell to filter Work Items tab</span>
+          {(filterAssignee !== "all" || filterWeek !== "all") && (
+            <button onClick={() => { setFilterAssignee("all"); setFilterWeek("all"); }} className="text-protocol-blue hover:underline">
+              Clear filters
+            </button>
+          )}
+        </div>
+      </Panel>}
+
       {/* ── Customer Portfolio ─────────────────────────────────────────────── */}
       {psView === "overview" && <Panel title="Customer Portfolio" subtitle="One row per Epic · click row to jump to Work Items" noPadding>
         <table className="w-full text-[12px]">
@@ -400,83 +494,6 @@ export default function PSDeliveryDashboard() {
             )}
           </tbody>
         </table>
-      </Panel>}
-
-      {/* ── Capacity Calendar ──────────────────────────────────────────────── */}
-      {psView === "overview" && <Panel title="Capacity Calendar" subtitle="Estimated hours due per assignee each week · green < 20h · amber 20–35h · red > 35h">
-        <div className="overflow-x-auto">
-          <table className="text-[11px] w-full min-w-[700px]">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-[0.1em] text-muted-text">
-                <th className="text-left pb-2 pr-4 font-medium w-32">Assignee</th>
-                {weeklyCapacity.map((b, i) => {
-                  const isPast = b.weekOf < today.slice(0, 8) + "01";
-                  const isCurrent = thisWeek?.weekOf === b.weekOf;
-                  return (
-                    <th
-                      key={b.weekOf}
-                      onClick={() => setFilterWeek(filterWeek === b.weekOf ? "all" : b.weekOf)}
-                      className={`pb-2 px-2 text-center font-medium cursor-pointer transition-colors hover:text-midnight ${isCurrent ? "text-protocol-blue" : isPast ? "opacity-40" : ""} ${filterWeek === b.weekOf ? "underline" : ""}`}
-                    >
-                      {b.label}
-                      {isCurrent && <div className="text-[9px] text-protocol-blue">this wk</div>}
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {/* Team total row */}
-              <tr className="border-t border-panel-border font-semibold">
-                <td className="py-2 pr-4 text-midnight">Team Total</td>
-                {weeklyCapacity.map(b => {
-                  const isPast = b.weekOf < today.slice(0, 7) + "-01";
-                  return (
-                    <td key={b.weekOf} className={`py-2 px-2 text-center tabular-nums rounded-sm ${capacityColor(b.totalHours)} ${isPast ? "opacity-40" : ""}`}>
-                      {b.totalHours > 0 ? fmtHrs(b.totalHours) : "—"}
-                    </td>
-                  );
-                })}
-              </tr>
-              {/* Per-assignee rows */}
-              {assignees.map(person => (
-                <tr key={person} className="border-t border-panel-border/50">
-                  <td
-                    className="py-2 pr-4 text-midnight cursor-pointer hover:text-protocol-blue truncate max-w-[120px]"
-                    title={person}
-                    onClick={() => setFilterAssignee(filterAssignee === person ? "all" : person)}
-                  >
-                    {person.split(" ")[0]}
-                  </td>
-                  {weeklyCapacity.map(b => {
-                    const hrs = b.byAssignee[person] ?? 0;
-                    const isPast = b.weekOf < today.slice(0, 7) + "-01";
-                    return (
-                      <td
-                        key={b.weekOf}
-                        onClick={() => { setFilterAssignee(person); setFilterWeek(filterWeek === b.weekOf ? "all" : b.weekOf); }}
-                        className={`py-2 px-2 text-center tabular-nums rounded-sm cursor-pointer ${capacityColor(hrs)} ${isPast ? "opacity-40" : ""}`}
-                      >
-                        {hrs > 0 ? fmtHrs(hrs) : "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              {assignees.length === 0 && (
-                <tr><td colSpan={9} className="py-4 text-center text-muted-text">No assignees with due dates in this window</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3 flex items-center gap-4 text-[10px] text-muted-text">
-          <span>Click a week header to filter · Click a person cell to filter by person + week</span>
-          {(filterAssignee !== "all" || filterWeek !== "all") && (
-            <button onClick={() => { setFilterAssignee("all"); setFilterWeek("all"); }} className="text-protocol-blue hover:underline">
-              Clear filters
-            </button>
-          )}
-        </div>
       </Panel>}
 
       {/* ── Work Item Workbench ────────────────────────────────────────────── */}

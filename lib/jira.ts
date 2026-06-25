@@ -84,20 +84,26 @@ async function jiraFetch(path: string, init?: RequestInit): Promise<Response> {
 }
 
 export async function fetchPsEpics(): Promise<PsEpic[]> {
-  const res = await jiraFetch("/rest/api/3/search/jql", {
-    method: "POST",
-    body: JSON.stringify({
+  const allEpics: any[] = [];
+  let nextPageToken: string | undefined;
+  while (true) {
+    const body: Record<string, any> = {
       jql: "project = PS AND issuetype = Epic ORDER BY summary ASC",
       fields: ["summary", "status"],
-      maxResults: 200,
-    }),
-  });
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    throw new Error(`Jira epics fetch failed: ${res.status} — ${errBody}`);
+      maxResults: 100,
+    };
+    if (nextPageToken) body.nextPageToken = nextPageToken;
+    const res = await jiraFetch("/rest/api/3/search/jql", { method: "POST", body: JSON.stringify(body) });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(`Jira epics fetch failed: ${res.status} — ${errBody}`);
+    }
+    const data = await res.json();
+    allEpics.push(...(data.issues ?? []));
+    if (data.isLast || !data.nextPageToken) break;
+    nextPageToken = data.nextPageToken;
   }
-  const data = await res.json();
-  return (data.issues ?? []).map((i: any) => ({
+  return allEpics.map((i: any) => ({
     key: i.key,
     summary: i.fields.summary,
     status: i.fields.status?.name ?? "Unknown",
