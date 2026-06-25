@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Panel, SectionHeader, formatCurrency } from "./ui";
 
 type Bucket = "B1" | "B2" | "B3" | "B4" | "B5" | "B6" | "B7";
@@ -437,8 +436,8 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
         {/* CSM accountability + account detail — side by side */}
         <div className="flex gap-4 items-start">
 
-          {/* CSM Accountability */}
-          <div className="w-72 flex-shrink-0">
+          {/* CSM Accountability + RAG Distribution */}
+          <div className="w-72 flex-shrink-0 space-y-3">
             <div className="bg-white border border-panel-border rounded-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-panel-border bg-light-bg">
                 <div className="text-sm font-semibold text-midnight">CSM Accountability</div>
@@ -481,44 +480,27 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                 </tbody>
               </table>
             </div>
-          </div>
 
-          {/* RAG Distribution chart */}
-          <div className="w-72 flex-shrink-0">
-            <div className="bg-white border border-panel-border rounded-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-panel-border bg-light-bg">
-                <div className="text-sm font-semibold text-midnight">RAG Distribution</div>
-                <div className="text-xs text-muted-text mt-0.5">by CSM · stacked Red / Amber / On Track</div>
-              </div>
-              <div className="px-2 py-3">
-                <ResponsiveContainer width="100%" height={Math.max(csmSummary.length * 28 + 16, 80)}>
-                  <BarChart
-                    data={csmSummary}
-                    layout="vertical"
-                    margin={{ left: 4, right: 16, top: 0, bottom: 0 }}
-                    barCategoryGap="30%"
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis
-                      type="category"
-                      dataKey="csm"
-                      width={90}
-                      tick={{ fontSize: 11, fill: "#475569" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "#f1f5f9" }}
-                      contentStyle={{ fontSize: 12, borderRadius: 4, border: "1px solid #e2e8f0" }}
-                      formatter={(v: number, name: string) => [v, name === "red" ? "Red" : name === "amber" ? "Amber" : "On Track"]}
-                    />
-                    <Bar dataKey="red"     stackId="a" fill="#FCA5A5" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="amber"   stackId="a" fill="#FCD34D" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="onTrack" stackId="a" fill="#6EE7B7" radius={[0, 2, 2, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            {/* RAG Distribution — aggregate proportion bar */}
+            {(() => {
+              const ragTotal = totals.red + totals.amber + totals.onTrack;
+              const pct = (n: number) => ragTotal > 0 ? `${Math.round(n / ragTotal * 100)}%` : "0%";
+              return (
+                <div className="bg-white border border-panel-border rounded-sm px-4 py-3 space-y-2">
+                  <div className="text-xs font-semibold text-muted-text uppercase tracking-wider">RAG Distribution</div>
+                  <div className="flex h-4 rounded overflow-hidden gap-px">
+                    {totals.red     > 0 && <div style={{ width: pct(totals.red) }}     className="bg-rose-400" title={`Red: ${totals.red}`} />}
+                    {totals.amber   > 0 && <div style={{ width: pct(totals.amber) }}   className="bg-amber-300" title={`Amber: ${totals.amber}`} />}
+                    {totals.onTrack > 0 && <div style={{ width: pct(totals.onTrack) }} className="bg-emerald-400" title={`On Track: ${totals.onTrack}`} />}
+                  </div>
+                  <div className="flex justify-between text-xs tabular-nums">
+                    <span className="text-rose-600 font-medium">{totals.red} Red <span className="font-normal opacity-70">({pct(totals.red)})</span></span>
+                    <span className="text-amber-600 font-medium">{totals.amber} Amber <span className="font-normal opacity-70">({pct(totals.amber)})</span></span>
+                    <span className="text-emerald-600 font-medium">{totals.onTrack} ✓ <span className="font-normal opacity-70">({pct(totals.onTrack)})</span></span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Account detail */}
