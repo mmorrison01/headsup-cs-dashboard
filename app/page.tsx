@@ -38,13 +38,30 @@ export default function Home() {
       <header className="bg-midnight text-white">
         <div className="max-w-[1440px] mx-auto px-8">
           <div className="flex items-center justify-between py-3 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-sm bg-protocol-blue flex items-center justify-center">
-                <span className="font-display text-sm font-bold text-white">H</span>
-              </div>
+            <div className="flex items-center gap-2.5">
+              {/* Heads Up brand mark — bar chart icon with hatched circles */}
+              <svg viewBox="0 0 32 30" width="32" height="30" fill="white" aria-hidden="true">
+                <defs>
+                  <pattern id="hu-hatch" x="0" y="0" width="4" height="1.2" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0.6" x2="4" y2="0.6" stroke="white" strokeWidth="0.5"/>
+                  </pattern>
+                </defs>
+                {/* hatched circle — top of center bar */}
+                <circle cx="14.5" cy="3" r="3" fill="url(#hu-hatch)"/>
+                {/* hatched circle — upper right */}
+                <circle cx="23" cy="6" r="2.4" fill="url(#hu-hatch)"/>
+                {/* small hatched dot — bottom left */}
+                <circle cx="2.2" cy="27" r="2" fill="url(#hu-hatch)"/>
+                {/* left short bar */}
+                <rect x="5.5" y="16" width="6" height="12" rx="3"/>
+                {/* center tall bar */}
+                <rect x="12" y="6" width="6" height="22" rx="3"/>
+                {/* right medium bar */}
+                <rect x="19.5" y="10.5" width="6" height="17.5" rx="3"/>
+              </svg>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-pulse-blue font-semibold">
-                  Heads Up
+                <div className="font-display text-white font-bold text-[17px] leading-tight tracking-tight">
+                  Heads Up<sup className="text-[9px] font-normal ml-0.5 tracking-normal">™</sup>
                 </div>
                 <div className="text-[11px] text-white/70 -mt-0.5">CS Operating Dashboard</div>
               </div>
