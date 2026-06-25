@@ -222,6 +222,18 @@ function computeSLAStatus(bucket: string | null, days: number | null, pkg: strin
 
 const STATUS_ORDER: Record<SLAStatus, number> = { red: 0, amber: 1, "on-track": 2, unknown: 3 };
 
+type HealthCategory = "red" | "amber" | "on-track" | "unknown";
+const HEALTH_ORDER: Record<HealthCategory, number> = { red: 0, amber: 1, "on-track": 2, unknown: 3 };
+
+function getHealthCategory(h: string | null): HealthCategory {
+  if (!h) return "unknown";
+  const v = h.toLowerCase();
+  if (v === "red" || v === "at risk") return "red";
+  if (v === "yellow" || v === "amber" || v === "orange") return "amber";
+  if (v === "green" || v === "on track" || v === "on-track") return "on-track";
+  return "unknown";
+}
+
 // ── SLA Status Dashboard ──────────────────────────────────────────────────────
 
 function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
@@ -242,11 +254,12 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
     .map(a => {
       const tier = getSLATier(a.servicePackage);
       const { amber, red } = getSLAThresholds(a.bucket, tier);
-      const status = computeSLAStatus(a.bucket, a.daysInBucket, a.servicePackage);
-      const breachLimit = status === "red" ? red : status === "amber" ? amber : null;
+      const slaStatus = computeSLAStatus(a.bucket, a.daysInBucket, a.servicePackage);
+      const healthCategory = getHealthCategory(a.projectHealth);
+      const breachLimit = slaStatus === "red" ? red : slaStatus === "amber" ? amber : null;
       const daysOver = breachLimit !== null && a.daysInBucket !== null
         ? Math.max(0, a.daysInBucket - breachLimit) : 0;
-      return { ...a, slaStatus: status, amberLimit: amber, redLimit: red, tier, daysOver };
+      return { ...a, slaStatus, healthCategory, amberLimit: amber, redLimit: red, tier, daysOver };
     }), [accounts]);
 
   const csms = useMemo(() =>
@@ -258,11 +271,11 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
       const rows = withSLA.filter(a => a.csmName === csm);
       return {
         csm,
-        total: rows.length,
-        red:     rows.filter(a => a.slaStatus === "red").length,
-        amber:   rows.filter(a => a.slaStatus === "amber").length,
-        onTrack: rows.filter(a => a.slaStatus === "on-track").length,
-        unknown: rows.filter(a => a.slaStatus === "unknown").length,
+        total:   rows.length,
+        red:     rows.filter(a => a.healthCategory === "red").length,
+        amber:   rows.filter(a => a.healthCategory === "amber").length,
+        onTrack: rows.filter(a => a.healthCategory === "on-track").length,
+        unknown: rows.filter(a => a.healthCategory === "unknown").length,
         worstDaysOver: rows.reduce((m, a) => Math.max(m, a.daysOver), 0),
       };
     }).sort((a, b) => b.red - a.red || b.amber - a.amber),
@@ -272,14 +285,14 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
     let base = filterCsm === "all" ? withSLA : withSLA.filter(a => a.csmName === filterCsm);
     if (filterHealth !== "all") base = base.filter(a => a.projectHealth === filterHealth);
     return [...base].sort((a, b) =>
-      STATUS_ORDER[a.slaStatus] - STATUS_ORDER[b.slaStatus] || b.daysOver - a.daysOver
+      HEALTH_ORDER[a.healthCategory] - HEALTH_ORDER[b.healthCategory] || b.daysOver - a.daysOver
     );
   }, [withSLA, filterCsm, filterHealth]);
 
   const totals = useMemo(() => ({
-    red:     withSLA.filter(a => a.slaStatus === "red").length,
-    amber:   withSLA.filter(a => a.slaStatus === "amber").length,
-    onTrack: withSLA.filter(a => a.slaStatus === "on-track").length,
+    red:     withSLA.filter(a => a.healthCategory === "red").length,
+    amber:   withSLA.filter(a => a.healthCategory === "amber").length,
+    onTrack: withSLA.filter(a => a.healthCategory === "on-track").length,
   }), [withSLA]);
 
   const noPackageAccounts = useMemo(() =>
@@ -538,7 +551,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                     )}
                     {filtered.map(a => (
                       <tr key={a.id} className={`border-b border-panel-border last:border-0 hover:bg-light-bg/60 transition-colors ${
-                        a.slaStatus === "red" ? "bg-rose-50/40" : a.slaStatus === "amber" ? "bg-amber-50/30" : ""
+                        a.healthCategory === "red" ? "bg-rose-50/40" : a.healthCategory === "amber" ? "bg-amber-50/30" : ""
                       }`}>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
@@ -558,7 +571,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                         <td className="px-3 py-2 text-right tabular-nums font-mono text-rose-600">{a.redLimit ?? "—"}</td>
                         <td className="px-3 py-2 text-right tabular-nums font-mono">
                           {a.daysOver > 0
-                            ? <span className={a.slaStatus === "red" ? "text-rose-600 font-semibold" : "text-amber-600 font-semibold"}>+{a.daysOver}d</span>
+                            ? <span className={a.healthCategory === "red" ? "text-rose-600 font-semibold" : "text-amber-600 font-semibold"}>+{a.daysOver}d</span>
                             : <span className="text-muted-text">—</span>}
                         </td>
                         <td className="px-3 py-2">{healthBadge(a.projectHealth)}</td>
