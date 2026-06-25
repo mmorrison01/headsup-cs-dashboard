@@ -138,13 +138,26 @@ export default function Home() {
       </main>
 
       <footer className="bg-white border-t border-panel-border">
-        <div className="max-w-[1440px] mx-auto px-8 py-6 flex items-center justify-between text-[11px] text-muted-text">
-          <div>
+        <div className="max-w-[1440px] mx-auto px-8 py-5 flex items-center justify-between">
+          <div className="text-[11px] text-muted-text">
             <span className="font-medium text-midnight">HeadsUp Health LLC.</span> · CS Operating Dashboard
-          </div>
-          <div className="flex items-center gap-6">
-            <span>
+            <div className="mt-1">
               Data sources: <span className="font-mono">Salesforce · PostHog · Stripe · Billing module · Pardot</span>
+            </div>
+          </div>
+          {/* Nicoya logo mark */}
+          <div className="flex flex-col items-center gap-1">
+            <svg viewBox="0 0 72 20" width="72" height="20" fill="none" aria-label="Nicoya">
+              <path
+                d="M 2,10 C 10,1 18,1 26,10 C 34,19 42,19 50,10 C 58,1 66,1 70,6"
+                stroke="#2CB5B2"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="text-[14px] tracking-[0.04em] font-light" style={{ color: "#1B2B4A", fontWeight: 300 }}>
+              nicoya
             </span>
           </div>
         </div>
