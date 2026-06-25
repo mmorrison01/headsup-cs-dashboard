@@ -111,7 +111,7 @@ export async function fetchPsIssues(): Promise<PsIssue[]> {
     const res = await jiraFetch("/rest/api/3/search/jql", {
       method: "POST",
       body: JSON.stringify({
-        jql: "project = PS AND issuetype in (Story, Task) ORDER BY duedate ASC NULLS LAST",
+        jql: "project = PS AND issuetype in (Story, Task) ORDER BY updated DESC",
         fields: ["summary", "status", "assignee", "duedate", "timeoriginalestimate", "timespent",
                  "priority", "parent", "labels", "issuelinks", "updated", "issuetype"],
         maxResults: pageSize,
