@@ -24,6 +24,7 @@ export async function GET() {
   }
 
   try {
+    console.log("[PS] Jira configured — email present:", !!process.env.JIRA_USER_EMAIL, "token present:", !!process.env.JIRA_API_TOKEN);
     const [epics, issues] = await Promise.all([fetchPsEpics(), fetchPsIssues()]);
 
     const today = getMondayISO(0).slice(0, 10);

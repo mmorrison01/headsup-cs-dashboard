@@ -92,7 +92,10 @@ export async function fetchPsEpics(): Promise<PsEpic[]> {
       maxResults: 200,
     }),
   });
-  if (!res.ok) throw new Error(`Jira epics fetch failed: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Jira epics fetch failed: ${res.status} — ${errBody}`);
+  }
   const data = await res.json();
   return (data.issues ?? []).map((i: any) => ({
     key: i.key,
@@ -116,7 +119,10 @@ export async function fetchPsIssues(): Promise<PsIssue[]> {
     };
     if (nextPageToken) body.nextPageToken = nextPageToken;
     const res = await jiraFetch("/rest/api/3/search/jql", { method: "POST", body: JSON.stringify(body) });
-    if (!res.ok) throw new Error(`Jira issues fetch failed: ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(`Jira issues fetch failed: ${res.status} — ${errBody}`);
+    }
     const data = await res.json();
     allIssues.push(...(data.issues ?? []));
     if (data.isLast || !data.nextPageToken) break;
