@@ -38,49 +38,15 @@ export default function Home() {
       <header className="bg-midnight text-white">
         <div className="max-w-[1440px] mx-auto px-8">
           <div className="flex items-center justify-between py-3 border-b border-white/10">
-            {/* Co-brand lockup: Nicoya | Heads Up */}
-            <div className="flex items-center gap-5">
-              {/* Nicoya: sinusoidal wave + wordmark */}
-              <div className="flex flex-col items-center gap-1">
-                <svg viewBox="0 0 80 22" width="68" height="19" fill="none" aria-label="Nicoya wave">
-                  <path
-                    d="M 2,11 C 8,2 16,2 24,11 C 32,20 40,20 48,11 C 56,2 64,2 72,11 C 76,15.5 79,18 80,18"
-                    stroke="white"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span className="text-[15px] tracking-wide text-white" style={{ fontWeight: 300, letterSpacing: "0.06em" }}>nicoya</span>
-              </div>
-
-              <div className="w-px h-11 bg-white/25" />
-
-              {/* Heads Up: 3 bars with dot-grid circles above each */}
-              <div className="flex items-center gap-2.5">
-                <svg viewBox="0 0 34 32" width="30" height="28" fill="white" aria-hidden="true">
-                  <defs>
-                    <pattern id="hu-dots" x="0" y="0" width="2.4" height="2.4" patternUnits="userSpaceOnUse">
-                      <circle cx="1.2" cy="1.2" r="0.6" fill="white"/>
-                    </pattern>
-                  </defs>
-                  {/* Left bar (short) — top at y=18, center-x=6 */}
-                  <circle cx="6" cy="15" r="3.2" fill="url(#hu-dots)"/>
-                  <rect x="2.5" y="18" width="7" height="13" rx="3.5"/>
-                  {/* Center bar (tall) — top at y=7, center-x=17 */}
-                  <circle cx="17" cy="4" r="3.5" fill="url(#hu-dots)"/>
-                  <rect x="13.5" y="7.5" width="7" height="23.5" rx="3.5"/>
-                  {/* Right bar (medium) — top at y=11.5, center-x=28 */}
-                  <circle cx="28" cy="8.5" r="3" fill="url(#hu-dots)"/>
-                  <rect x="24.5" y="11.5" width="7" height="19.5" rx="3.5"/>
-                </svg>
-                <div>
-                  <div className="font-display text-white font-bold text-[17px] leading-tight tracking-tight">
-                    Heads Up<sup className="text-[9px] font-normal ml-0.5 tracking-normal">™</sup>
-                  </div>
-                  <div className="text-[11px] text-white/70 -mt-0.5">CS Operating Dashboard</div>
-                </div>
-              </div>
+            {/* Co-brand lockup from official asset */}
+            <div className="flex flex-col items-start -ml-3">
+              <img
+                src="/nicoya-hu.png"
+                alt="Nicoya | Heads Up"
+                className="h-14 w-auto"
+                style={{ mixBlendMode: "screen" }}
+              />
+              <div className="text-[11px] text-white/60 pl-4 -mt-1">CS Operating Dashboard</div>
             </div>
             <div className="flex items-center gap-6 text-[11px]">
               <div className="text-white/60">Mike Morrison · COO</div>
