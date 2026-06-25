@@ -44,7 +44,7 @@ export default function Home() {
                 src="/nicoya-hu.png"
                 alt="Nicoya | Heads Up"
                 className="h-14 w-auto"
-                style={{ mixBlendMode: "screen" }}
+                style={{}}
               />
               <div className="text-[11px] text-white/60 pl-4 -mt-1">CS Operating Dashboard</div>
             </div>
@@ -90,7 +90,7 @@ export default function Home() {
                 active={view === "executive"}
                 onClick={() => setView("executive")}
                 label="Executive"
-                sub="Weekly review · Mike, Ian, Gavin"
+                sub="Weekly review"
               />
               <TabButton
                 active={view === "cs"}
@@ -125,7 +125,7 @@ export default function Home() {
             <span className="font-medium text-midnight">HeadsUp Health LLC.</span> · CS Operating Dashboard
           </div>
           <div>
-            Data sources: <span className="font-mono">Salesforce · PostHog · Stripe · Billing module · Pardot</span>
+            Data sources: <span className="font-mono">Salesforce · PostHog · Stripe · Billing module · Pardot · Jira</span>
           </div>
         </div>
       </footer>
