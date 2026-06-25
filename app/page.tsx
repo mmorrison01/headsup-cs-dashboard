@@ -38,15 +38,14 @@ export default function Home() {
       <header className="bg-midnight text-white">
         <div className="max-w-[1440px] mx-auto px-8">
           <div className="flex items-center justify-between py-3 border-b border-white/10">
-            {/* Co-brand lockup from official asset */}
-            <div className="flex flex-col items-start -ml-3">
+            {/* Co-brand lockup */}
+            <div className="flex flex-col items-start -ml-4 -my-1">
               <img
                 src="/nicoya-hu.png"
                 alt="Nicoya | Heads Up"
-                className="h-14 w-auto"
-                style={{}}
+                className="h-16 w-auto"
               />
-              <div className="text-[11px] text-white/60 pl-4 -mt-1">CS Operating Dashboard</div>
+              <div className="text-[11px] text-white/60 pl-5 -mt-2">CS Operating Dashboard</div>
             </div>
             <div className="flex items-center gap-6 text-[11px]">
               <div className="text-white/60">Mike Morrison · COO</div>
