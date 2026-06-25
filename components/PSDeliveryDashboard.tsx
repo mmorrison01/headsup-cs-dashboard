@@ -462,8 +462,36 @@ export default function PSDeliveryDashboard() {
           </div>
         </div>
 
-        {/* Workbench + Risk Surface */}
+        {/* Risk Surface + Workbench */}
         <div className="flex-1 min-w-0 space-y-4">
+
+          {/* Risk Surface */}
+          <div className="grid grid-cols-3 gap-4">
+            <RiskColumn
+              title="Blocked"
+              color="rose"
+              issues={riskSurface.blocked}
+              today={today}
+              emptyMsg="No blocked issues"
+              renderMeta={i => i.assignee?.split(" ")[0] ?? "Unassigned"}
+            />
+            <RiskColumn
+              title="Overdue"
+              color="rose"
+              issues={riskSurface.overdue}
+              today={today}
+              emptyMsg="Nothing overdue"
+              renderMeta={i => i.dueDate ? `${Math.abs(daysUntil(i.dueDate))}d overdue` : "No due date"}
+            />
+            <RiskColumn
+              title="Aging (7d+ no activity)"
+              color="slate"
+              issues={riskSurface.aging}
+              today={today}
+              emptyMsg="No aging issues"
+              renderMeta={i => `${daysAgo(i.lastUpdated)}d since update`}
+            />
+          </div>
 
           {/* Work Items */}
           <Panel
@@ -603,34 +631,6 @@ export default function PSDeliveryDashboard() {
               {saving && " · Saving…"}
             </div>
           </Panel>
-
-          {/* Risk Surface */}
-          <div className="grid grid-cols-3 gap-4">
-            <RiskColumn
-              title="Blocked"
-              color="rose"
-              issues={riskSurface.blocked}
-              today={today}
-              emptyMsg="No blocked issues"
-              renderMeta={i => i.assignee?.split(" ")[0] ?? "Unassigned"}
-            />
-            <RiskColumn
-              title="Overdue"
-              color="rose"
-              issues={riskSurface.overdue}
-              today={today}
-              emptyMsg="Nothing overdue"
-              renderMeta={i => i.dueDate ? `${Math.abs(daysUntil(i.dueDate))}d overdue` : "No due date"}
-            />
-            <RiskColumn
-              title="Aging (7d+ no activity)"
-              color="slate"
-              issues={riskSurface.aging}
-              today={today}
-              emptyMsg="No aging issues"
-              renderMeta={i => `${daysAgo(i.lastUpdated)}d since update`}
-            />
-          </div>
 
         </div>
       </div>
