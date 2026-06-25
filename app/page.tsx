@@ -5,9 +5,10 @@ import ExecutiveDashboard from "@/components/ExecutiveDashboard";
 import CSLeadershipDashboard from "@/components/CSLeadershipDashboard";
 import PLGEngagementDashboard from "@/components/PLGEngagementDashboard";
 import OnboardingLifecycleDashboard from "@/components/OnboardingLifecycleDashboard";
+import PSDeliveryDashboard from "@/components/PSDeliveryDashboard";
 import { signOut } from "next-auth/react";
 
-type View = "lifecycle" | "executive" | "cs" | "plg";
+type View = "lifecycle" | "executive" | "cs" | "plg" | "ps";
 
 function getWeekLabel(): { weekOf: string; isoWeek: string } {
   const now = new Date();
@@ -98,6 +99,12 @@ export default function Home() {
                 label="PLG Engagement"
                 sub="Weekly review · Angela, Elaine, Peter"
               />
+              <TabButton
+                active={view === "ps"}
+                onClick={() => setView("ps")}
+                label="PS Delivery"
+                sub="Projects · capacity · risk"
+              />
             </nav>
           </div>
         </div>
@@ -109,6 +116,7 @@ export default function Home() {
           {view === "executive" && <ExecutiveDashboard />}
           {view === "cs" && <CSLeadershipDashboard />}
           {view === "plg" && <PLGEngagementDashboard />}
+          {view === "ps" && <PSDeliveryDashboard />}
         </div>
       </main>
 
