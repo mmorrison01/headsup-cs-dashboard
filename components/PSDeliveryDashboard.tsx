@@ -98,6 +98,9 @@ export default function PSDeliveryDashboard() {
   const [showBlockedOnly, setShowBlockedOnly] = useState(false);
   const [searchText, setSearchText] = useState("");
 
+  // Internal view tabs
+  const [psView, setPsView] = useState<"overview" | "workbench">("workbench");
+
   // Inline edit state
   const [saving, setSaving] = useState<string | null>(null); // issueKey being saved
 
@@ -297,10 +300,10 @@ export default function PSDeliveryDashboard() {
           </div>
         </Panel>
 
-        <Panel className={summary.blocked > 0 ? "border-amber-300" : ""}>
+        <Panel className={summary.blocked > 0 ? "border-rose-300" : ""}>
           <div className="px-1 py-1">
             <div className="text-[10px] uppercase tracking-[0.15em] text-muted-text mb-2">Blocked</div>
-            <div className={`text-4xl font-display font-medium ${summary.blocked > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+            <div className={`text-4xl font-display font-medium ${summary.blocked > 0 ? "text-rose-600" : "text-emerald-600"}`}>
               {summary.blocked}
             </div>
             <div className="text-[11px] text-muted-text mt-1">need unblocking</div>
@@ -318,8 +321,25 @@ export default function PSDeliveryDashboard() {
         </Panel>
       </div>
 
+      {/* ── Internal Tab Strip ────────────────────────────────────────────── */}
+      <div className="flex gap-1 border-b border-panel-border -mb-2">
+        {(["workbench", "overview"] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setPsView(v)}
+            className={`px-4 py-2 text-[12px] font-medium border-b-2 transition-colors -mb-px ${
+              psView === v
+                ? "border-protocol-blue text-midnight"
+                : "border-transparent text-muted-text hover:text-midnight"
+            }`}
+          >
+            {v === "workbench" ? "Work Items" : "Portfolio & Capacity"}
+          </button>
+        ))}
+      </div>
+
       {/* ── Customer Portfolio ─────────────────────────────────────────────── */}
-      <Panel title="Customer Portfolio" subtitle="One row per Epic · click to filter the workbench below" noPadding>
+      {psView === "overview" && <Panel title="Customer Portfolio" subtitle="One row per Epic · click row to jump to Work Items" noPadding>
         <table className="w-full text-[12px]">
           <thead>
             <tr className="border-b border-panel-border text-[10px] uppercase tracking-[0.1em] text-muted-text">
@@ -338,13 +358,13 @@ export default function PSDeliveryDashboard() {
               return (
                 <tr
                   key={row.epic.key}
-                  onClick={() => setFilterEpic(isActive ? "all" : row.epic.key)}
+                  onClick={() => { setFilterEpic(isActive ? "all" : row.epic.key); if (!isActive) setPsView("workbench"); }}
                   className={`border-b border-panel-border cursor-pointer transition-colors ${isActive ? "bg-pulse-blue/5" : "hover:bg-subtle"}`}
                 >
                   <td className="px-5 py-2.5">
                     <div className="flex items-center gap-2">
                       {(row.overdue > 0 || row.blocked > 0) && (
-                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${row.blocked > 0 ? "bg-amber-400" : "bg-rose-500"}`} />
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-rose-500" />
                       )}
                       <a
                         href={row.epic.url}
@@ -362,7 +382,7 @@ export default function PSDeliveryDashboard() {
                   <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${row.overdue > 0 ? "text-rose-600" : "text-muted-text"}`}>
                     {row.overdue || "—"}
                   </td>
-                  <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${row.blocked > 0 ? "text-amber-600" : "text-muted-text"}`}>
+                  <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${row.blocked > 0 ? "text-rose-600" : "text-muted-text"}`}>
                     {row.blocked || "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-emerald-600">{row.done || "—"}</td>
@@ -380,10 +400,10 @@ export default function PSDeliveryDashboard() {
             )}
           </tbody>
         </table>
-      </Panel>
+      </Panel>}
 
       {/* ── Capacity Calendar ──────────────────────────────────────────────── */}
-      <Panel title="Capacity Calendar" subtitle="Estimated hours due per assignee each week · green < 20h · amber 20–35h · red > 35h">
+      {psView === "overview" && <Panel title="Capacity Calendar" subtitle="Estimated hours due per assignee each week · green < 20h · amber 20–35h · red > 35h">
         <div className="overflow-x-auto">
           <table className="text-[11px] w-full min-w-[700px]">
             <thead>
@@ -457,10 +477,10 @@ export default function PSDeliveryDashboard() {
             </button>
           )}
         </div>
-      </Panel>
+      </Panel>}
 
       {/* ── Work Item Workbench ────────────────────────────────────────────── */}
-      <Panel
+      {psView === "workbench" && <Panel
         title="Work Item Workbench"
         subtitle="All PS stories and tasks · inline status, due date, and blocked edits"
         noPadding
@@ -489,7 +509,7 @@ export default function PSDeliveryDashboard() {
                 type="checkbox"
                 checked={showBlockedOnly}
                 onChange={e => setShowBlockedOnly(e.target.checked)}
-                className="accent-amber-500"
+                className="accent-rose-500"
               />
               Blocked only
             </label>
@@ -521,7 +541,7 @@ export default function PSDeliveryDashboard() {
                 <th className="px-3 py-2 text-center font-medium">Due</th>
                 <th className="px-3 py-2 text-right font-medium">Est</th>
                 <th className="px-3 py-2 text-left font-medium">Assignee</th>
-                <th className="px-3 py-2 text-center font-medium">🚧</th>
+                <th className="px-3 py-2 text-center font-medium">Blocked</th>
               </tr>
             </thead>
             <tbody>
@@ -531,7 +551,7 @@ export default function PSDeliveryDashboard() {
                 return (
                   <tr
                     key={issue.key}
-                    className={`border-b border-panel-border/60 hover:bg-subtle transition-colors ${issue.blocked ? "bg-amber-50/40" : isOverdue ? "bg-rose-50/30" : ""} ${isSavingThis ? "opacity-50" : ""}`}
+                    className={`border-b border-panel-border/60 hover:bg-subtle transition-colors ${issue.blocked ? "bg-rose-50/50" : isOverdue ? "bg-rose-50/30" : ""} ${isSavingThis ? "opacity-50" : ""}`}
                   >
                     {/* Key */}
                     <td className="px-4 py-2 whitespace-nowrap">
@@ -591,7 +611,7 @@ export default function PSDeliveryDashboard() {
                         onClick={() => toggleBlocked(issue)}
                         disabled={isSavingThis}
                         title={issue.blocked ? "Mark unblocked" : "Mark blocked"}
-                        className={`w-4 h-4 rounded-full border-2 transition-colors ${issue.blocked ? "bg-amber-400 border-amber-400 hover:bg-amber-300" : "border-slate-300 hover:border-amber-400"}`}
+                        className={`w-4 h-4 rounded-full border-2 transition-colors ${issue.blocked ? "bg-rose-500 border-rose-500 hover:bg-rose-400" : "border-slate-300 hover:border-rose-400"}`}
                       />
                     </td>
                   </tr>
@@ -608,13 +628,13 @@ export default function PSDeliveryDashboard() {
           {filteredIssues.length !== data.issues.length && ` (filtered from ${data.issues.length})`}
           {saving && " · Saving…"}
         </div>
-      </Panel>
+      </Panel>}
 
       {/* ── Risk Surface ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4">
+      {psView === "workbench" && <div className="grid grid-cols-3 gap-4">
         <RiskColumn
           title="Blocked"
-          color="amber"
+          color="rose"
           issues={riskSurface.blocked}
           today={today}
           emptyMsg="No blocked issues"
@@ -636,7 +656,7 @@ export default function PSDeliveryDashboard() {
           emptyMsg="No aging issues"
           renderMeta={i => `${daysAgo(i.lastUpdated)}d since update`}
         />
-      </div>
+      </div>}
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <div className="text-[10px] text-muted-text text-right pb-4">
