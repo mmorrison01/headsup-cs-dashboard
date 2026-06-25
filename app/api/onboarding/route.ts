@@ -64,8 +64,7 @@ export async function GET() {
     }
     const allAcctIds = Object.keys(acctBucket);
 
-    // Active projects (Stage = Onboard / Hypercare / Approved / Completed) drive CSM assignments and detail fields.
-    // Completed projects are included so B7/Launched account detail fields render, but excluded from Active Book counts below.
+    // Active projects — only Onboard and Hypercare stages count for SLA and onboarding metrics.
     const projCsm: Record<string, string> = {};
     const projAcct: Record<string, string> = {};
     const projStage: Record<string, string> = {};
@@ -81,7 +80,7 @@ export async function GET() {
     const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Needs Review','Onboard','Hypercare','Approved','Completed') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
