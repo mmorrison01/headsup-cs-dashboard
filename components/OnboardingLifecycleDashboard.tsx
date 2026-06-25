@@ -224,7 +224,12 @@ const STATUS_ORDER: Record<SLAStatus, number> = { red: 0, amber: 1, "on-track": 
 
 // ── SLA Status Dashboard ──────────────────────────────────────────────────────
 
-function SLAStatusView({ accounts }: { accounts: ApiAccount[] }) {
+function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
+  accounts: ApiAccount[];
+  onRefresh: () => void;
+  refreshing: boolean;
+  updatedAt: string | null;
+}) {
   const [filterCsm, setFilterCsm] = useState("all");
 
   const withSLA = useMemo(() => accounts
@@ -304,7 +309,7 @@ function SLAStatusView({ accounts }: { accounts: ApiAccount[] }) {
 
       {/* ── Performance Dashboard ── */}
       <div className="border-t-2 border-panel-border pt-6 space-y-5">
-        {/* Header + CSM filter */}
+        {/* Header + CSM filter + refresh */}
         <div className="flex items-center justify-between">
           <div>
             <div className="font-display text-xl font-medium text-midnight">SLA Performance Dashboard</div>
@@ -312,16 +317,28 @@ function SLAStatusView({ accounts }: { accounts: ApiAccount[] }) {
               {accounts.length} active accounts · Days in stage vs. per-tier thresholds
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-muted-text">Filter by CSM</label>
-            <select
-              value={filterCsm}
-              onChange={e => setFilterCsm(e.target.value)}
-              className="border border-panel-border rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-cyan"
-            >
-              <option value="all">All CSMs</option>
-              {csms.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-muted-text">Filter by CSM</label>
+              <select
+                value={filterCsm}
+                onChange={e => setFilterCsm(e.target.value)}
+                className="border border-panel-border rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-cyan"
+              >
+                <option value="all">All CSMs</option>
+                {csms.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="text-right text-[11px] text-muted-text">
+              {updatedAt && <div>Updated {new Date(updatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>}
+              <button
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="text-protocol-blue hover:underline disabled:opacity-50 disabled:cursor-wait"
+              >
+                {refreshing ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -670,7 +687,7 @@ export default function OnboardingLifecycleDashboard() {
               : "border-transparent text-muted-text hover:text-midnight"
           }`}
         >
-          {key === "status" ? "Onboarding Status" : "SLA Reference"}
+          {key === "status" ? "Onboarding Status" : "SLA Performance"}
         </button>
       ))}
     </div>
@@ -680,7 +697,12 @@ export default function OnboardingLifecycleDashboard() {
     return (
       <div className="tab-fade-in">
         {subNav}
-        <SLAStatusView accounts={localAccounts} />
+        <SLAStatusView
+          accounts={localAccounts}
+          onRefresh={() => fetchData(true)}
+          refreshing={refreshing}
+          updatedAt={data?.updatedAt ?? null}
+        />
       </div>
     );
   }
