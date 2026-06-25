@@ -189,25 +189,274 @@ function SLATable({ rows, alertColor }: { rows: typeof SLA_AMBER; alertColor: "a
   );
 }
 
-function SLAStatusView() {
+// ── SLA helpers ──────────────────────────────────────────────────────────────
+
+function getSLATier(pkg: string | null): "pro" | "premiere" | "enterprise" | null {
+  if (!pkg) return null;
+  const p = pkg.toLowerCase();
+  if (p.includes("enterprise")) return "enterprise";
+  if (p.includes("premiere") || p.includes("premier")) return "premiere";
+  if (p.includes("professional") || p === "pro") return "pro";
+  return null;
+}
+
+function getSLAThresholds(bucket: string | null, tier: "pro" | "premiere" | "enterprise" | null) {
+  if (!bucket || !tier) return { amber: null as number | null, red: null as number | null };
+  const a = SLA_AMBER.find(r => r.bucket === bucket);
+  const r = SLA_RED.find(r => r.bucket === bucket);
+  if (!a || !r) return { amber: null as number | null, red: null as number | null };
+  return { amber: a[tier] as number, red: r[tier] as number };
+}
+
+type SLAStatus = "red" | "amber" | "on-track" | "unknown";
+
+function computeSLAStatus(bucket: string | null, days: number | null, pkg: string | null): SLAStatus {
+  if (!bucket || days === null) return "unknown";
+  const tier = getSLATier(pkg);
+  const { amber, red } = getSLAThresholds(bucket, tier);
+  if (amber === null || red === null) return "unknown";
+  if (days >= red) return "red";
+  if (days >= amber) return "amber";
+  return "on-track";
+}
+
+const STATUS_ORDER: Record<SLAStatus, number> = { red: 0, amber: 1, "on-track": 2, unknown: 3 };
+
+// ── SLA Status Dashboard ──────────────────────────────────────────────────────
+
+function SLAStatusView({ accounts }: { accounts: ApiAccount[] }) {
+  const [filterCsm, setFilterCsm] = useState("all");
+
+  const withSLA = useMemo(() => accounts
+    .filter(a => a.bucket)
+    .map(a => {
+      const tier = getSLATier(a.servicePackage);
+      const { amber, red } = getSLAThresholds(a.bucket, tier);
+      const status = computeSLAStatus(a.bucket, a.daysInBucket, a.servicePackage);
+      const breachLimit = status === "red" ? red : status === "amber" ? amber : null;
+      const daysOver = breachLimit !== null && a.daysInBucket !== null
+        ? Math.max(0, a.daysInBucket - breachLimit) : 0;
+      return { ...a, slaStatus: status, amberLimit: amber, redLimit: red, tier, daysOver };
+    }), [accounts]);
+
+  const csms = useMemo(() =>
+    [...new Set(withSLA.filter(a => a.csmName).map(a => a.csmName!))].sort(),
+    [withSLA]);
+
+  const csmSummary = useMemo(() =>
+    csms.map(csm => {
+      const rows = withSLA.filter(a => a.csmName === csm);
+      return {
+        csm,
+        total: rows.length,
+        red:     rows.filter(a => a.slaStatus === "red").length,
+        amber:   rows.filter(a => a.slaStatus === "amber").length,
+        onTrack: rows.filter(a => a.slaStatus === "on-track").length,
+        unknown: rows.filter(a => a.slaStatus === "unknown").length,
+        worstDaysOver: rows.reduce((m, a) => Math.max(m, a.daysOver), 0),
+      };
+    }).sort((a, b) => b.red - a.red || b.amber - a.amber),
+    [csms, withSLA]);
+
+  const filtered = useMemo(() => {
+    const base = filterCsm === "all" ? withSLA : withSLA.filter(a => a.csmName === filterCsm);
+    return [...base].sort((a, b) =>
+      STATUS_ORDER[a.slaStatus] - STATUS_ORDER[b.slaStatus] || b.daysOver - a.daysOver
+    );
+  }, [withSLA, filterCsm]);
+
+  const totals = useMemo(() => ({
+    red:     withSLA.filter(a => a.slaStatus === "red").length,
+    amber:   withSLA.filter(a => a.slaStatus === "amber").length,
+    onTrack: withSLA.filter(a => a.slaStatus === "on-track").length,
+    unknown: withSLA.filter(a => a.slaStatus === "unknown").length,
+  }), [withSLA]);
+
+  const statusBadge = (s: SLAStatus) => {
+    const cfg: Record<SLAStatus, { label: string; cls: string }> = {
+      red:       { label: "Red Alert",  cls: "bg-rose-100 text-rose-700 border-rose-200" },
+      amber:     { label: "Amber",      cls: "bg-amber-100 text-amber-700 border-amber-200" },
+      "on-track":{ label: "On Track",   cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+      unknown:   { label: "No Package", cls: "bg-slate-100 text-slate-500 border-slate-200" },
+    };
+    const { label, cls } = cfg[s];
+    return <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium border ${cls}`}>{label}</span>;
+  };
+
   return (
-    <div className="tab-fade-in space-y-6">
+    <div className="space-y-6">
+      {/* ── Reference tables ── */}
       <div>
         <div className="text-xs font-semibold text-muted-text uppercase tracking-wider mb-1">Onboarding Lifecycle · SLA Reference</div>
         <div className="font-display text-2xl font-medium text-midnight">Onboarding SLA Targets</div>
         <div className="text-sm text-muted-text mt-1">
           Maximum days in stage before an aging alert is triggered, by onboarding package tier.
-          Alerts are cumulative — Red replaces Amber once the Red threshold is crossed.
+          Red replaces Amber once the Red threshold is crossed.
         </div>
       </div>
-
       <div className="flex gap-4 items-start">
         <SLATable rows={SLA_AMBER} alertColor="amber" />
         <SLATable rows={SLA_RED}   alertColor="red"   />
       </div>
-
       <div className="text-xs text-muted-text border-t border-panel-border pt-3">
         * B2 Deferred Migration SLA effective July 1, 2026
+      </div>
+
+      {/* ── Performance Dashboard ── */}
+      <div className="border-t-2 border-panel-border pt-6 space-y-5">
+        {/* Header + CSM filter */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-display text-xl font-medium text-midnight">SLA Performance Dashboard</div>
+            <div className="text-sm text-muted-text mt-0.5">
+              {accounts.length} active accounts · Days in stage vs. per-tier thresholds
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-muted-text">Filter by CSM</label>
+            <select
+              value={filterCsm}
+              onChange={e => setFilterCsm(e.target.value)}
+              className="border border-panel-border rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-cyan"
+            >
+              <option value="all">All CSMs</option>
+              {csms.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: "Red Alert",   value: totals.red,     sub: "exceeds red threshold",   bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-600" },
+            { label: "Amber Alert", value: totals.amber,   sub: "approaching red",          bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-600" },
+            { label: "On Track",    value: totals.onTrack, sub: "within SLA",               bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-600" },
+            { label: "No Package",  value: totals.unknown, sub: "package not set in SFDC",  bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-500" },
+          ].map(k => (
+            <div key={k.label} className={`${k.bg} border ${k.border} rounded-sm px-4 py-3`}>
+              <div className={`text-xs font-semibold uppercase tracking-wide ${k.text}`}>{k.label}</div>
+              <div className={`font-display text-3xl font-medium mt-1 ${k.text}`}>{k.value}</div>
+              <div className={`text-xs mt-0.5 ${k.text} opacity-70`}>{k.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* CSM accountability + account detail — side by side */}
+        <div className="flex gap-4 items-start">
+
+          {/* CSM Accountability */}
+          <div className="w-72 flex-shrink-0">
+            <div className="bg-white border border-panel-border rounded-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-panel-border bg-light-bg">
+                <div className="text-sm font-semibold text-midnight">CSM Accountability</div>
+                <div className="text-xs text-muted-text mt-0.5">Click row to filter accounts</div>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-panel-border text-xs text-muted-text">
+                    <th className="text-left px-3 py-2 font-medium">CSM</th>
+                    <th className="text-center px-2 py-2 font-medium text-rose-500">🔴</th>
+                    <th className="text-center px-2 py-2 font-medium text-amber-500">🟡</th>
+                    <th className="text-center px-2 py-2 font-medium text-emerald-600">✓</th>
+                    <th className="text-right px-3 py-2 font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csmSummary.map(row => (
+                    <tr
+                      key={row.csm}
+                      onClick={() => setFilterCsm(filterCsm === row.csm ? "all" : row.csm)}
+                      className={`border-b border-panel-border last:border-0 cursor-pointer transition-colors ${
+                        filterCsm === row.csm
+                          ? "bg-cyan/10 border-l-2 border-l-cyan"
+                          : "hover:bg-light-bg"
+                      }`}
+                    >
+                      <td className="px-3 py-2 font-medium text-midnight truncate max-w-[120px]">{row.csm}</td>
+                      <td className="px-2 py-2 text-center tabular-nums">
+                        {row.red > 0 && <span className="font-semibold text-rose-600">{row.red}</span>}
+                        {row.red === 0 && <span className="text-muted-text">—</span>}
+                      </td>
+                      <td className="px-2 py-2 text-center tabular-nums">
+                        {row.amber > 0 && <span className="font-semibold text-amber-600">{row.amber}</span>}
+                        {row.amber === 0 && <span className="text-muted-text">—</span>}
+                      </td>
+                      <td className="px-2 py-2 text-center tabular-nums text-emerald-600">{row.onTrack}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-text">{row.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Account detail */}
+          <div className="flex-1 min-w-0">
+            <div className="bg-white border border-panel-border rounded-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-panel-border bg-light-bg flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-midnight">
+                    {filterCsm === "all" ? "All Accounts" : filterCsm}
+                  </div>
+                  <div className="text-xs text-muted-text mt-0.5">
+                    {filtered.length} account{filtered.length !== 1 ? "s" : ""} · sorted by severity
+                  </div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-panel-border text-xs text-muted-text bg-light-bg">
+                      <th className="text-left px-3 py-2 font-medium">Account</th>
+                      <th className="text-left px-3 py-2 font-medium">CSM</th>
+                      <th className="text-left px-3 py-2 font-medium">Package</th>
+                      <th className="text-right px-3 py-2 font-medium">Days</th>
+                      <th className="text-right px-3 py-2 font-medium">Amber</th>
+                      <th className="text-right px-3 py-2 font-medium">Red</th>
+                      <th className="text-right px-3 py-2 font-medium">Over</th>
+                      <th className="text-left px-3 py-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-3 py-8 text-center text-muted-text text-sm">No accounts</td>
+                      </tr>
+                    )}
+                    {filtered.map(a => (
+                      <tr key={a.id} className={`border-b border-panel-border last:border-0 hover:bg-light-bg/60 transition-colors ${
+                        a.slaStatus === "red" ? "bg-rose-50/40" : a.slaStatus === "amber" ? "bg-amber-50/30" : ""
+                      }`}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-5 h-5 rounded-sm text-[10px] font-bold text-white flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: BUCKET_COLORS[a.bucket ?? ""] ?? "#94A3B8" }}
+                            >
+                              {a.bucket}
+                            </span>
+                            <span className="font-medium text-midnight truncate max-w-[180px]">{a.accountName}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-muted-text truncate max-w-[100px]">{a.csmName ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-text text-xs">{a.servicePackage ?? <span className="italic">Not set</span>}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-mono font-medium text-midnight">{a.daysInBucket ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-mono text-amber-600">{a.amberLimit ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-mono text-rose-600">{a.redLimit ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-mono">
+                          {a.daysOver > 0
+                            ? <span className={a.slaStatus === "red" ? "text-rose-600 font-semibold" : "text-amber-600 font-semibold"}>+{a.daysOver}d</span>
+                            : <span className="text-muted-text">—</span>}
+                        </td>
+                        <td className="px-3 py-2">{statusBadge(a.slaStatus)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -431,7 +680,7 @@ export default function OnboardingLifecycleDashboard() {
     return (
       <div className="tab-fade-in">
         {subNav}
-        <SLAStatusView />
+        <SLAStatusView accounts={localAccounts} />
       </div>
     );
   }
