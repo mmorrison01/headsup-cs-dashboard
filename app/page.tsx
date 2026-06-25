@@ -64,7 +64,7 @@ export default function Home() {
             <div className="flex items-end justify-between">
               <div>
                 <div className="font-display text-[36px] font-medium leading-tight tracking-tight">
-                  PLG Customer Success
+                  Customer Success
                 </div>
               </div>
               <div className="text-right text-[11px] text-white/60">
@@ -78,8 +78,14 @@ export default function Home() {
                 active={view === "lifecycle"}
                 onClick={() => setView("lifecycle")}
                 label="Onboarding Lifecycle"
-                sub="Operation GoLive · June 2026"
+                sub="Onboarding Status, SLA and Workbench"
                 accent
+              />
+              <TabButton
+                active={view === "ps"}
+                onClick={() => setView("ps")}
+                label="PS Delivery"
+                sub="Projects · capacity · risk"
               />
               <TabButton
                 active={view === "executive"}
@@ -91,19 +97,13 @@ export default function Home() {
                 active={view === "cs"}
                 onClick={() => setView("cs")}
                 label="CS Leadership"
-                sub="Daily workbench · Elaine + team"
+                sub="Daily workbench"
               />
               <TabButton
                 active={view === "plg"}
                 onClick={() => setView("plg")}
                 label="PLG Engagement"
-                sub="Weekly review · Angela, Elaine, Peter"
-              />
-              <TabButton
-                active={view === "ps"}
-                onClick={() => setView("ps")}
-                label="PS Delivery"
-                sub="Projects · capacity · risk"
+                sub="Weekly review"
               />
             </nav>
           </div>
