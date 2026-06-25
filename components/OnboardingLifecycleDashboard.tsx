@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Panel, SectionHeader, formatCurrency } from "./ui";
 
 type Bucket = "B1" | "B2" | "B3" | "B4" | "B5" | "B6" | "B7";
@@ -338,7 +339,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
           <div>
             <div className="font-display text-xl font-medium text-midnight">SLA Performance Dashboard</div>
             <div className="text-sm text-muted-text mt-0.5">
-              {accounts.length} active projects · Days in stage vs. per-tier thresholds
+              {withSLA.length} active projects · Days in stage vs. per-tier thresholds
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -383,7 +384,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
             { label: "Red Alert",   value: totals.red,     sub: "exceeds red threshold",   bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-600" },
             { label: "Amber Alert", value: totals.amber,   sub: "approaching red",          bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-600" },
             { label: "On Track",    value: totals.onTrack, sub: "within SLA",               bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-600" },
-            { label: "Total Active", value: accounts.length, sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
+            { label: "Total Active", value: withSLA.length,  sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
           ].map(k => (
             <div key={k.label} className={`${k.bg} border ${k.border} rounded-sm px-4 py-3`}>
               <div className={`text-xs font-semibold uppercase tracking-wide ${k.text}`}>{k.label}</div>
@@ -479,6 +480,44 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* RAG Distribution chart */}
+          <div className="w-72 flex-shrink-0">
+            <div className="bg-white border border-panel-border rounded-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-panel-border bg-light-bg">
+                <div className="text-sm font-semibold text-midnight">RAG Distribution</div>
+                <div className="text-xs text-muted-text mt-0.5">by CSM · stacked Red / Amber / On Track</div>
+              </div>
+              <div className="px-2 py-3">
+                <ResponsiveContainer width="100%" height={Math.max(csmSummary.length * 28 + 16, 80)}>
+                  <BarChart
+                    data={csmSummary}
+                    layout="vertical"
+                    margin={{ left: 4, right: 16, top: 0, bottom: 0 }}
+                    barCategoryGap="30%"
+                  >
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="csm"
+                      width={90}
+                      tick={{ fontSize: 11, fill: "#475569" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "#f1f5f9" }}
+                      contentStyle={{ fontSize: 12, borderRadius: 4, border: "1px solid #e2e8f0" }}
+                      formatter={(v: number, name: string) => [v, name === "red" ? "Red" : name === "amber" ? "Amber" : "On Track"]}
+                    />
+                    <Bar dataKey="red"     stackId="a" fill="#FCA5A5" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="amber"   stackId="a" fill="#FCD34D" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="onTrack" stackId="a" fill="#6EE7B7" radius={[0, 2, 2, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
