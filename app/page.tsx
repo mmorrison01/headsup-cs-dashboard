@@ -139,26 +139,49 @@ export default function Home() {
 
       <footer className="bg-white border-t border-panel-border">
         <div className="max-w-[1440px] mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="text-[11px] text-muted-text">
-            <span className="font-medium text-midnight">HeadsUp Health LLC.</span> · CS Operating Dashboard
-            <div className="mt-1">
-              Data sources: <span className="font-mono">Salesforce · PostHog · Stripe · Billing module · Pardot</span>
+          {/* Co-brand lockup: Nicoya | Heads Up */}
+          <div className="flex items-center gap-5">
+            {/* Nicoya logo */}
+            <div className="flex flex-col items-center gap-0.5">
+              <svg viewBox="0 0 72 20" width="60" height="16" fill="none" aria-label="Nicoya">
+                <path
+                  d="M 2,10 C 10,1 18,1 26,10 C 34,19 42,19 50,10 C 58,1 66,1 70,6"
+                  stroke="#2CB5B2"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="text-[13px] tracking-[0.04em]" style={{ color: "#1B2B4A", fontWeight: 300 }}>
+                nicoya
+              </span>
+            </div>
+
+            <div className="w-px h-9 bg-panel-border" />
+
+            {/* Heads Up logo */}
+            <div className="flex items-center gap-1.5">
+              <svg viewBox="0 0 32 30" width="22" height="21" aria-hidden="true">
+                <defs>
+                  <pattern id="hu-ft-hatch" x="0" y="0" width="4" height="1.2" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0.6" x2="4" y2="0.6" stroke="#0F1C2E" strokeWidth="0.5"/>
+                  </pattern>
+                </defs>
+                <circle cx="14.5" cy="3" r="3" fill="url(#hu-ft-hatch)"/>
+                <circle cx="23" cy="6" r="2.4" fill="url(#hu-ft-hatch)"/>
+                <circle cx="2.2" cy="27" r="2" fill="url(#hu-ft-hatch)"/>
+                <rect x="5.5" y="16" width="6" height="12" rx="3" fill="#0F1C2E"/>
+                <rect x="12" y="6" width="6" height="22" rx="3" fill="#0F1C2E"/>
+                <rect x="19.5" y="10.5" width="6" height="17.5" rx="3" fill="#0F1C2E"/>
+              </svg>
+              <span className="font-display font-bold text-[13px] leading-tight tracking-tight text-midnight">
+                Heads Up<sup className="text-[7px] font-normal ml-0.5">™</sup>
+              </span>
             </div>
           </div>
-          {/* Nicoya logo mark */}
-          <div className="flex flex-col items-center gap-1">
-            <svg viewBox="0 0 72 20" width="72" height="20" fill="none" aria-label="Nicoya">
-              <path
-                d="M 2,10 C 10,1 18,1 26,10 C 34,19 42,19 50,10 C 58,1 66,1 70,6"
-                stroke="#2CB5B2"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="text-[14px] tracking-[0.04em] font-light" style={{ color: "#1B2B4A", fontWeight: 300 }}>
-              nicoya
-            </span>
+
+          <div className="text-[11px] text-muted-text">
+            Data sources: <span className="font-mono">Salesforce · PostHog · Stripe · Billing module · Pardot</span>
           </div>
         </div>
       </footer>
