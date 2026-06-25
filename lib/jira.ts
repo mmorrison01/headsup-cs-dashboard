@@ -105,24 +105,22 @@ export async function fetchPsEpics(): Promise<PsEpic[]> {
 
 export async function fetchPsIssues(): Promise<PsIssue[]> {
   const allIssues: any[] = [];
-  let startAt = 0;
+  let nextPageToken: string | undefined;
   const pageSize = 100;
   while (true) {
-    const res = await jiraFetch("/rest/api/3/search/jql", {
-      method: "POST",
-      body: JSON.stringify({
-        jql: "project = PS AND issuetype in (Story, Task) ORDER BY updated DESC",
-        fields: ["summary", "status", "assignee", "duedate", "timeoriginalestimate", "timespent",
-                 "priority", "parent", "labels", "issuelinks", "updated", "issuetype"],
-        maxResults: pageSize,
-        startAt,
-      }),
-    });
+    const body: Record<string, any> = {
+      jql: "project = PS AND issuetype in (Story, Task) ORDER BY updated DESC",
+      fields: ["summary", "status", "assignee", "duedate", "timeoriginalestimate", "timespent",
+               "priority", "parent", "labels", "issuelinks", "updated", "issuetype"],
+      maxResults: pageSize,
+    };
+    if (nextPageToken) body.nextPageToken = nextPageToken;
+    const res = await jiraFetch("/rest/api/3/search/jql", { method: "POST", body: JSON.stringify(body) });
     if (!res.ok) throw new Error(`Jira issues fetch failed: ${res.status}`);
     const data = await res.json();
     allIssues.push(...(data.issues ?? []));
-    if (data.isLast || allIssues.length >= (data.total ?? 0)) break;
-    startAt += pageSize;
+    if (data.isLast || !data.nextPageToken) break;
+    nextPageToken = data.nextPageToken;
   }
 
   return allIssues.map((i: any) => {
