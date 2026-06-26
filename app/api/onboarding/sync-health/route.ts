@@ -43,12 +43,23 @@ function getTier(pkg: string | null): "pro" | "premiere" | "enterprise" | null {
   return null;
 }
 
+// Minimum amber threshold across all tiers per bucket — if days is below this,
+// the account is on-track regardless of which tier they're on.
+const MIN_AMBER: Record<string, number> = {
+  B1: 7, B2: 60, B3: 10, B4: 7, B5: 21, B6: 30, B7: 35,
+};
+
 function computeSLAStatus(bucket: string, days: number, pkg: string | null): "red" | "amber" | "on-track" | null {
-  const tier = getTier(pkg);
-  if (!tier) return null;
   const amberRow = SLA_AMBER[bucket];
   const redRow = SLA_RED[bucket];
   if (!amberRow || !redRow) return null;
+
+  const tier = getTier(pkg);
+  if (!tier) {
+    // No package — can still determine "on-track" if days is below the
+    // minimum amber threshold for this bucket across all tiers.
+    return days < (MIN_AMBER[bucket] ?? Infinity) ? "on-track" : null;
+  }
   if (days >= redRow[tier]) return "red";
   if (days >= amberRow[tier]) return "amber";
   return "on-track";
