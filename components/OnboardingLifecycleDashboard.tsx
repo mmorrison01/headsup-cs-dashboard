@@ -347,7 +347,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
       "Yellow":   "bg-amber-100 text-amber-700 border-amber-200",
       "Amber":    "bg-amber-100 text-amber-700 border-amber-200",
       "Red":      "bg-rose-100 text-rose-700 border-rose-200",
-      "At Risk":  "bg-rose-100 text-rose-700 border-rose-200",
+      "At Risk":  "bg-amber-100 text-amber-700 border-amber-200",
       "Critical": "bg-rose-100 text-rose-700 border-rose-200",
     };
     const c = cls[h] ?? "bg-slate-100 text-slate-600 border-slate-200";
