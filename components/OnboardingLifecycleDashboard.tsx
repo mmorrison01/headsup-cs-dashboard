@@ -236,11 +236,12 @@ function getHealthCategory(h: string | null): HealthCategory {
 
 // ── SLA Status Dashboard ──────────────────────────────────────────────────────
 
-function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
+function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt, totalActive }: {
   accounts: ApiAccount[];
   onRefresh: () => void;
   refreshing: boolean;
   updatedAt: string | null;
+  totalActive: number;
 }) {
   const [filterCsm, setFilterCsm] = useState("all");
   const [filterHealth, setFilterHealth] = useState("all");
@@ -356,7 +357,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
           <div>
             <div className="font-display text-xl font-medium text-midnight">SLA Performance Dashboard</div>
             <div className="text-sm text-muted-text mt-0.5">
-              {withSLA.length} active projects · Days in stage vs. per-tier thresholds
+              {totalActive} active projects · Days in stage vs. per-tier thresholds
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -412,7 +413,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
             { label: "Red Alert",   value: totals.red,     sub: "exceeds red threshold",   bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-600" },
             { label: "Amber Alert", value: totals.amber,   sub: "approaching red",          bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-600" },
             { label: "On Track",    value: totals.onTrack, sub: "within SLA",               bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-600" },
-            { label: "Total Active", value: withSLA.length,  sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
+            { label: "Total Active", value: totalActive,      sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
           ].map(k => (
             <div key={k.label} className={`${k.bg} border ${k.border} rounded-sm px-4 py-3`}>
               <div className={`text-xs font-semibold uppercase tracking-wide ${k.text}`}>{k.label}</div>
@@ -827,6 +828,7 @@ export default function OnboardingLifecycleDashboard() {
           onRefresh={() => fetchData(true)}
           refreshing={refreshing}
           updatedAt={data?.updatedAt ?? null}
+          totalActive={data?.totalActive ?? 0}
         />
       </div>
     );
