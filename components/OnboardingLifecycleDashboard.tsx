@@ -228,7 +228,7 @@ const HEALTH_ORDER: Record<HealthCategory, number> = { red: 0, amber: 1, "on-tra
 function getHealthCategory(h: string | null): HealthCategory {
   if (!h) return "unknown";
   const v = h.toLowerCase();
-  if (v === "red" || v === "at risk") return "red";
+  if (v === "red" || v === "at risk" || v === "critical") return "red";
   if (v === "yellow" || v === "amber" || v === "orange") return "amber";
   if (v === "green" || v === "on track" || v === "on-track") return "on-track";
   return "unknown";
@@ -313,6 +313,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
       "Amber":    "bg-amber-100 text-amber-700 border-amber-200",
       "Red":      "bg-rose-100 text-rose-700 border-rose-200",
       "At Risk":  "bg-rose-100 text-rose-700 border-rose-200",
+      "Critical": "bg-rose-100 text-rose-700 border-rose-200",
     };
     const c = cls[h] ?? "bg-slate-100 text-slate-600 border-slate-200";
     return <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium border ${c}`}>{h}</span>;
