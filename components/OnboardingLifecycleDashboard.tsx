@@ -244,6 +244,9 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
 }) {
   const [filterCsm, setFilterCsm] = useState("all");
   const [filterHealth, setFilterHealth] = useState("all");
+  const [filterBucket, setFilterBucket] = useState("all");
+
+  const BUCKETS = ["B1","B2","B3","B4","B5","B6","B7"] as const;
 
   const healthValues = useMemo(() =>
     [...new Set(accounts.filter(a => a.projectHealth).map(a => a.projectHealth!))].sort(),
@@ -283,11 +286,12 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
 
   const filtered = useMemo(() => {
     let base = filterCsm === "all" ? withSLA : withSLA.filter(a => a.csmName === filterCsm);
-    if (filterHealth !== "all") base = base.filter(a => a.projectHealth === filterHealth);
+    if (filterHealth  !== "all") base = base.filter(a => a.projectHealth === filterHealth);
+    if (filterBucket  !== "all") base = base.filter(a => a.bucket === filterBucket);
     return [...base].sort((a, b) =>
       HEALTH_ORDER[a.healthCategory] - HEALTH_ORDER[b.healthCategory] || b.daysOver - a.daysOver
     );
-  }, [withSLA, filterCsm, filterHealth]);
+  }, [withSLA, filterCsm, filterHealth, filterBucket]);
 
   const totals = useMemo(() => ({
     red:     withSLA.filter(a => a.healthCategory === "red").length,
@@ -355,6 +359,17 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-muted-text">Bucket</label>
+              <select
+                value={filterBucket}
+                onChange={e => setFilterBucket(e.target.value)}
+                className="border border-panel-border rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-cyan"
+              >
+                <option value="all">All Buckets</option>
+                {BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-text">Filter by Health Score</label>
               <select
