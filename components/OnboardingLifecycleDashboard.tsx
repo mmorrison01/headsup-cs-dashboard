@@ -228,8 +228,8 @@ const HEALTH_ORDER: Record<HealthCategory, number> = { red: 0, amber: 1, "on-tra
 function getHealthCategory(h: string | null): HealthCategory {
   if (!h) return "unknown";
   const v = h.toLowerCase();
-  if (v === "red" || v === "at risk" || v === "critical") return "red";
-  if (v === "yellow" || v === "amber" || v === "orange") return "amber";
+  if (v === "red" || v === "critical") return "red";
+  if (v === "yellow" || v === "amber" || v === "orange" || v === "at risk") return "amber";
   if (v === "green" || v === "on track" || v === "on-track") return "on-track";
   return "unknown";
 }
