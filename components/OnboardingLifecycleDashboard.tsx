@@ -236,12 +236,11 @@ function getHealthCategory(h: string | null): HealthCategory {
 
 // ── SLA Status Dashboard ──────────────────────────────────────────────────────
 
-function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt, totalActive }: {
+function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
   accounts: ApiAccount[];
   onRefresh: () => void;
   refreshing: boolean;
   updatedAt: string | null;
-  totalActive: number;
 }) {
   const [filterCsm, setFilterCsm] = useState("all");
   const [filterHealth, setFilterHealth] = useState("all");
@@ -357,7 +356,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt, totalActive
           <div>
             <div className="font-display text-xl font-medium text-midnight">SLA Performance Dashboard</div>
             <div className="text-sm text-muted-text mt-0.5">
-              {totalActive} active projects · Days in stage vs. per-tier thresholds
+              {withSLA.length} active projects · Days in stage vs. per-tier thresholds
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -413,7 +412,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt, totalActive
             { label: "Red Alert",   value: totals.red,     sub: "exceeds red threshold",   bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-600" },
             { label: "Amber Alert", value: totals.amber,   sub: "approaching red",          bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-600" },
             { label: "On Track",    value: totals.onTrack, sub: "within SLA",               bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-600" },
-            { label: "Total Active", value: totalActive,      sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
+            { label: "Total Active", value: withSLA.length,  sub: "projects in onboarding",             bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600" },
           ].map(k => (
             <div key={k.label} className={`${k.bg} border ${k.border} rounded-sm px-4 py-3`}>
               <div className={`text-xs font-semibold uppercase tracking-wide ${k.text}`}>{k.label}</div>
@@ -445,7 +444,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt, totalActive
                 </thead>
                 <tbody>
                   {noPackageAccounts.map(a => (
-                    <tr key={a.id} className="border-b border-slate-100 last:border-0 hover:bg-white/60 transition-colors">
+                    <tr key={a.projectId ?? a.id} className="border-b border-slate-100 last:border-0 hover:bg-white/60 transition-colors">
                       <td className="px-3 py-2 font-medium text-midnight">{a.accountName}</td>
                       <td className="px-3 py-2">
                         {a.bucket
@@ -567,7 +566,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt, totalActive
                       </tr>
                     )}
                     {filtered.map(a => (
-                      <tr key={a.id} className={`border-b border-panel-border last:border-0 hover:bg-light-bg/60 transition-colors ${
+                      <tr key={a.projectId ?? a.id} className={`border-b border-panel-border last:border-0 hover:bg-light-bg/60 transition-colors ${
                         a.healthCategory === "red" ? "bg-rose-50/40" : a.healthCategory === "amber" ? "bg-amber-50/30" : ""
                       }`}>
                         <td className="px-3 py-2">
@@ -828,7 +827,6 @@ export default function OnboardingLifecycleDashboard() {
           onRefresh={() => fetchData(true)}
           refreshing={refreshing}
           updatedAt={data?.updatedAt ?? null}
-          totalActive={data?.totalActive ?? 0}
         />
       </div>
     );

@@ -80,7 +80,7 @@ export async function GET() {
     const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Account__r.Name, Account__r.Onboarding_Status__c, Account__r.Account_Status__c, Account__r.Executive_Program_Status__c, Account__r.Total_Deployment_Revenue_Estimate_c__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -351,10 +351,7 @@ export async function GET() {
       monthTotals[csm] = (monthTotals[csm] ?? 0) + 1;
     }
 
-    // All active accounts for the workbench
-    const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Account_Status__c, Executive_Program_Status__c FROM Account WHERE (Account_Status__c IN ('Active','Paused') OR Account_Status__c = null) AND Onboarding_Status__c != null AND Id IN (SELECT Account__c FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare')) AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
-      .then((r: any) => r.records ?? []);
+    // accounts array is built from projRecs below (one entry per project = correct project count)
 
     const currentWeekNum = getJuneWeekNumber();
     const totalActive = bucketCounts.B1 + bucketCounts.B2 + bucketCounts.B3 + bucketCounts.B4 + bucketCounts.B5 + bucketCounts.B6 + bucketCounts.B7;
@@ -427,31 +424,34 @@ export async function GET() {
         pct: bothDonePct,
         goal: 70,
       },
-      accounts: acctDetails.map(r => ({
-        id: r.Id,
-        accountName: r.Name,
-        bucket: BUCKET_LABELS[r.Onboarding_Status__c ?? ""] ?? "pending",
-        arr: r.Total_Deployment_Revenue_Estimate_c__c ?? 0,
-        goLiveDate: acctGoLive[r.Id] ?? null,
-        daysInBucket: acctStatusChangeDate[r.Id]
-          ? Math.floor((Date.now() - new Date(acctStatusChangeDate[r.Id]!).getTime()) / 86400000)
-          : null,
-        customerTemperature: acctTemperature[r.Id] ?? null,
-        parallel10: acctParallel10[r.Id] ?? false,
-        csmName: acctCsm[r.Id] ? (csmIds[acctCsm[r.Id]] ?? null) : null,
-        rtDone: acctRtDone.has(r.Id),
-        tpDone: acctTpDone.has(r.Id),
-        projectId: acctProjectId[r.Id] ?? null,
-        projectHealth: acctProjectHealth[r.Id] ?? null,
-        solutionsConsultant: acctSolutionsConsultant[r.Id] ?? null,
-        servicePackage: acctServicePackage[r.Id] ?? null,
-        projectType: acctProjectType[r.Id] ?? null,
-        hypercareDri: acctHypercareDri[r.Id] ?? null,
-        nextEngagementDate: acctNextEngagement[r.Id] ?? null,
-        accountStatus: r.Account_Status__c ?? null,
-        executiveProgramStatus: r.Executive_Program_Status__c ?? null,
-        stage: acctProjectStage[r.Id] ?? null,
-      })),
+      accounts: projRecs.map(r => {
+        const acctId = r.Account__c;
+        return {
+          id: acctId,
+          accountName: r.Account__r.Name,
+          bucket: BUCKET_LABELS[r.Account__r.Onboarding_Status__c ?? ""] ?? "pending",
+          arr: r.Account__r.Total_Deployment_Revenue_Estimate_c__c ?? 0,
+          goLiveDate: r.Customer_Planned_Go_Live_Date__c ?? null,
+          daysInBucket: acctStatusChangeDate[acctId]
+            ? Math.floor((Date.now() - new Date(acctStatusChangeDate[acctId]!).getTime()) / 86400000)
+            : null,
+          customerTemperature: r.Customer_Temperature__c ?? null,
+          parallel10: r.Parallel_1_0__c ?? false,
+          csmName: r.CSM__r?.Name ?? null,
+          rtDone: acctRtDone.has(acctId),
+          tpDone: acctTpDone.has(acctId),
+          projectId: r.Id,
+          projectHealth: r.Project_Health__c ?? null,
+          solutionsConsultant: r.Solutions_Consultant__r?.Name ?? null,
+          servicePackage: r.Service_Package__c ?? null,
+          projectType: r.Project_Type__c ?? null,
+          hypercareDri: r.Hypercare_DRI__r?.Name ?? null,
+          nextEngagementDate: acctNextEngagement[acctId] ?? null,
+          accountStatus: r.Account__r.Account_Status__c ?? null,
+          executiveProgramStatus: r.Account__r.Executive_Program_Status__c ?? null,
+          stage: r.Stage__c ?? null,
+        };
+      }),
     });
   } catch (err) {
     console.error("Salesforce API error:", err);
