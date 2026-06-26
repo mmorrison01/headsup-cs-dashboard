@@ -246,6 +246,41 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
   const [filterHealth, setFilterHealth] = useState("all");
   const [filterBucket, setFilterBucket] = useState("all");
 
+  const [syncState, setSyncState] = useState<"idle" | "previewing" | "confirming" | "applying" | "done" | "error">("idle");
+  const [syncPreview, setSyncPreview] = useState<{ toUpdate: number; breakdown: { toCritical: number; toAtRisk: number; toOnTrack: number; skipped: number } } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ updated: number } | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  async function handleSyncPreview() {
+    setSyncState("previewing");
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/onboarding/sync-health");
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      setSyncPreview({ toUpdate: data.toUpdate, breakdown: data.breakdown });
+      setSyncState("confirming");
+    } catch (e) {
+      setSyncError(String(e));
+      setSyncState("error");
+    }
+  }
+
+  async function handleSyncApply() {
+    setSyncState("applying");
+    try {
+      const res = await fetch("/api/onboarding/sync-health", { method: "POST" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      setSyncResult({ updated: data.updated });
+      setSyncState("done");
+      setTimeout(() => { setSyncState("idle"); setSyncPreview(null); setSyncResult(null); onRefresh(); }, 3000);
+    } catch (e) {
+      setSyncError(String(e));
+      setSyncState("error");
+    }
+  }
+
   const BUCKETS = ["B1","B2","B3","B4","B5","B6","B7"] as const;
 
   const healthValues = useMemo(() =>
@@ -393,15 +428,56 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                 {csms.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div className="text-right text-[11px] text-muted-text">
+            <div className="text-right text-[11px] text-muted-text space-y-1">
               {updatedAt && <div>Updated {new Date(updatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>}
-              <button
-                onClick={onRefresh}
-                disabled={refreshing}
-                className="text-protocol-blue hover:underline disabled:opacity-50 disabled:cursor-wait"
-              >
-                {refreshing ? "Refreshing…" : "Refresh"}
-              </button>
+              <div className="flex items-center gap-3 justify-end">
+                <button
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                  className="text-protocol-blue hover:underline disabled:opacity-50 disabled:cursor-wait"
+                >
+                  {refreshing ? "Refreshing…" : "Refresh"}
+                </button>
+                {syncState === "idle" && (
+                  <button
+                    onClick={handleSyncPreview}
+                    className="bg-midnight text-white px-2.5 py-1 rounded text-[11px] font-medium hover:bg-midnight/80 transition-colors"
+                  >
+                    Sync Health → SFDC
+                  </button>
+                )}
+                {syncState === "previewing" && (
+                  <span className="text-muted-text italic">Checking…</span>
+                )}
+                {syncState === "confirming" && syncPreview && (
+                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">
+                    <span className="text-amber-700">
+                      {syncPreview.toUpdate === 0
+                        ? "All health scores are up to date"
+                        : `Update ${syncPreview.toUpdate} project${syncPreview.toUpdate !== 1 ? "s" : ""} — ${syncPreview.breakdown.toCritical} Critical · ${syncPreview.breakdown.toAtRisk} At Risk · ${syncPreview.breakdown.toOnTrack} On Track`
+                      }
+                    </span>
+                    {syncPreview.toUpdate > 0 && (
+                      <button
+                        onClick={handleSyncApply}
+                        className="bg-amber-600 text-white px-2 py-0.5 rounded text-[11px] font-medium hover:bg-amber-700 transition-colors ml-1"
+                      >
+                        Apply
+                      </button>
+                    )}
+                    <button onClick={() => setSyncState("idle")} className="text-amber-500 hover:text-amber-700 ml-1">✕</button>
+                  </div>
+                )}
+                {syncState === "applying" && (
+                  <span className="text-muted-text italic">Updating SFDC…</span>
+                )}
+                {syncState === "done" && syncResult && (
+                  <span className="text-emerald-600 font-medium">✓ {syncResult.updated} records updated</span>
+                )}
+                {syncState === "error" && (
+                  <span className="text-rose-600">Error: {syncError} <button onClick={() => setSyncState("idle")} className="underline ml-1">Dismiss</button></span>
+                )}
+              </div>
             </div>
           </div>
         </div>
