@@ -342,13 +342,13 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
   const healthBadge = (h: string | null) => {
     if (!h) return <span className="text-muted-text italic text-xs">—</span>;
     const cls: Record<string, string> = {
-      "Green":    "bg-slate-100 text-slate-600 border-slate-200",
-      "On Track": "bg-slate-100 text-slate-600 border-slate-200",
+      "Green":    "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "On Track": "bg-emerald-100 text-emerald-700 border-emerald-200",
       "Yellow":   "bg-amber-100 text-amber-700 border-amber-200",
       "Amber":    "bg-amber-100 text-amber-700 border-amber-200",
-      "Red":      "bg-slate-100 text-slate-600 border-slate-200",
+      "Red":      "bg-rose-100 text-rose-700 border-rose-200",
       "At Risk":  "bg-amber-100 text-amber-700 border-amber-200",
-      "Critical": "bg-slate-100 text-slate-600 border-slate-200",
+      "Critical": "bg-rose-100 text-rose-700 border-rose-200",
     };
     const c = cls[h] ?? "bg-slate-100 text-slate-600 border-slate-200";
     return <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium border ${c}`}>{h}</span>;
@@ -642,9 +642,7 @@ function SLAStatusView({ accounts, onRefresh, refreshing, updatedAt }: {
                       </tr>
                     )}
                     {filtered.map(a => (
-                      <tr key={a.projectId ?? a.id} className={`border-b border-panel-border last:border-0 hover:bg-light-bg/60 transition-colors ${
-                        a.healthCategory === "red" ? "bg-rose-50/40" : a.healthCategory === "amber" ? "bg-amber-50/30" : ""
-                      }`}>
+                      <tr key={a.projectId ?? a.id} className="border-b border-panel-border last:border-0 hover:bg-light-bg/60 transition-colors">
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
                             <span
