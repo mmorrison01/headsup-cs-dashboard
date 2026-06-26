@@ -50,7 +50,7 @@ export async function GET() {
 
     // Active accounts with bucket assignments
     const acctRecs: { Id: string; Onboarding_Status__c: string | null; Total_Deployment_Revenue_Estimate_c__c: number | null; Date_of_Next_Engagement__c: string | null }[] = await (conn as any)
-      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Date_of_Next_Engagement__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND (NOT Name LIKE '%Amber Test%')")
+      .query("SELECT Id, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Date_of_Next_Engagement__c FROM Account WHERE (Account_Status__c IN ('Active','Paused') OR Account_Status__c = null) AND Id IN (SELECT Account__c FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare')) AND (NOT Name LIKE '%Amber Test%')")
       .then((r: any) => r.records ?? []);
 
     const acctBucket: Record<string, string> = {};
@@ -80,7 +80,7 @@ export async function GET() {
     const acctProjectStage: Record<string, string | null> = {};
 
     const projRecs: any[] = await (conn as any)
-      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare') AND CSM__c != null AND Account__r.Account_Status__c IN ('Active','Paused') AND (NOT Account__r.Name LIKE '%Amber Test%')`)
+      .query(`SELECT Id, CSM__c, CSM__r.Name, Account__c, Stage__c, Customer_Planned_Go_Live_Date__c, Customer_Temperature__c, Parallel_1_0__c, Project_Health__c, Service_Package__c, Project_Type__c, Solutions_Consultant__r.Name, Hypercare_DRI__r.Name FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare') AND CSM__c != null AND (Account__r.Account_Status__c IN ('Active','Paused') OR Account__r.Account_Status__c = null) AND (NOT Account__r.Name LIKE '%Amber Test%')`)
       .then((r: any) => r.records ?? []);
     for (const r of projRecs) {
       const acctId = r.Account__c;
@@ -353,7 +353,7 @@ export async function GET() {
 
     // All active accounts for the workbench
     const acctDetails: any[] = await (conn as any)
-      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Account_Status__c, Executive_Program_Status__c FROM Account WHERE Account_Status__c IN ('Active','Paused') AND Onboarding_Status__c != null AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
+      .query("SELECT Id, Name, Onboarding_Status__c, Total_Deployment_Revenue_Estimate_c__c, Account_Status__c, Executive_Program_Status__c FROM Account WHERE (Account_Status__c IN ('Active','Paused') OR Account_Status__c = null) AND Onboarding_Status__c != null AND Id IN (SELECT Account__c FROM Project__c WHERE Stage__c IN ('Onboard','Hypercare')) AND (NOT Name LIKE '%Amber Test%') ORDER BY Name ASC")
       .then((r: any) => r.records ?? []);
 
     const currentWeekNum = getJuneWeekNumber();
